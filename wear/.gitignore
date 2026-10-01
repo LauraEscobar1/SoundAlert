@@ -1,0 +1,11 @@
+.gradle/
+.kotlin/
+build/
+local.properties
+captures/
+*.iml
+.externalNativeBuild/
+.cxx/
+
+# Clips de evaluación (ESC-50, CC BY-NC): se descargan con tools/fetch-eval-clips.sh
+app/src/androidTest/assets/clips/

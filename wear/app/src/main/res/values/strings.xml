@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SoundAlert</string>
+    <string name="channel_listening">Escucha continua</string>
+    <string name="notification_title">SoundAlert escuchando</string>
+    <string name="notification_text">Clasificando sonidos del entorno</string>
+    <string name="action_pause">Pausar</string>
+    <string name="action_acknowledge">Confirmar</string>
+    <string name="notification_danger_title">PELIGRO: %1$s</string>
+    <string name="notification_danger_text">Confirma para cerrar la alerta</string>
+</resources>
