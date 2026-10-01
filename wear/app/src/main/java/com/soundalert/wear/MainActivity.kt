@@ -21,7 +21,11 @@ import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
+import com.soundalert.wear.alert.Alert
+import com.soundalert.wear.alert.AlertStatus
+import com.soundalert.wear.context.SoundAlertContext
 import com.soundalert.wear.detection.DetectionEvent
+import com.soundalert.wear.rules.Priority
 import com.soundalert.wear.pipeline.PipelineStatus
 import com.soundalert.wear.pipeline.PipelineStatus.Phase
 import com.soundalert.wear.service.ListeningService
@@ -29,9 +33,10 @@ import java.util.Locale
 
 /**
  * PANTALLA DE DIAGNÓSTICO TEMPORAL (no es la interfaz de los mockups).
- * Sirve para pedir permisos, activar/pausar la escucha y ver el estado del
- * pipeline. Activar debe hacerse aquí: Android solo concede el micrófono a un
- * foreground service iniciado con la app visible.
+ * Sirve para pedir permisos, activar/pausar la escucha, elegir el contexto,
+ * confirmar/cerrar alertas activas y ver el estado del pipeline. Activar debe
+ * hacerse aquí: Android solo concede el micrófono a un foreground service
+ * iniciado con la app visible.
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,6 +49,10 @@ class MainActivity : ComponentActivity() {
 private fun DiagnosticScreen() {
     val context = LocalContext.current
     val status by PipelineStatus.snapshot.collectAsStateWithLifecycle()
+    val alertManager = remember { SoundAlertRuntime.alertManager(context) }
+    val alerts by alertManager.alerts.collectAsStateWithLifecycle()
+    val currentContext by SoundAlertRuntime.contextManager.context.collectAsStateWithLifecycle()
+    val active = alerts.filter { it.status == AlertStatus.ACTIVE }.sortedBy { it.priority.ordinal }
     var permissionMessage by remember { mutableStateOf<String?>(null) }
 
     val permissions = buildList {
@@ -63,6 +72,15 @@ private fun DiagnosticScreen() {
 
     ScalingLazyColumn(modifier = Modifier.fillMaxWidth()) {
         item { Text("SoundAlert · diagnóstico", style = MaterialTheme.typography.titleSmall) }
+        // Alertas activas primero: DANGER exige confirmación explícita.
+        active.forEach { alert ->
+            item { Text(alertText(alert), color = priorityColor(alert.priority), textAlign = TextAlign.Center) }
+            item {
+                Button(onClick = { alertManager.acknowledge(alert.id) }, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (alert.priority == Priority.DANGER) "Confirmar" else "Cerrar")
+                }
+            }
+        }
         item { Text(phaseText(status.phase), color = phaseColor(status.phase), textAlign = TextAlign.Center) }
         item {
             Button(
@@ -77,6 +95,15 @@ private fun DiagnosticScreen() {
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) { Text(if (running) "Pausar" else "Activar") }
+        }
+        item { Text("Contexto: ${currentContext.label}", style = MaterialTheme.typography.labelSmall) }
+        SoundAlertContext.entries.forEach { option ->
+            item {
+                Button(
+                    onClick = { SoundAlertRuntime.contextManager.set(option) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(if (option == currentContext) "✓ ${option.label}" else option.label) }
+            }
         }
         (permissionMessage ?: status.error)?.let { item { Text(it, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center) } }
         if (running) {
@@ -99,6 +126,23 @@ private fun DiagnosticScreen() {
             }
         }
     }
+}
+
+private fun alertText(alert: Alert) = String.format(
+    Locale.US,
+    "%s · %s %.2f\n%s · %s",
+    alert.priority,
+    alert.category,
+    alert.confidence,
+    alert.label,
+    alert.context.label,
+)
+
+@Composable
+private fun priorityColor(priority: Priority) = when (priority) {
+    Priority.DANGER -> MaterialTheme.colorScheme.error
+    Priority.ATTENTION -> MaterialTheme.colorScheme.tertiary
+    Priority.INFORMATION -> MaterialTheme.colorScheme.primary
 }
 
 private fun phaseText(phase: Phase) = when (phase) {
