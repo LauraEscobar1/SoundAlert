@@ -32,7 +32,8 @@ sealed interface DetectionEvent {
  *
  * - Inicio: ≥ [StabilizerConfig.confirmRequired] de las últimas
  *   [StabilizerConfig.confirmWindows] ventanas superan el umbral de la categoría,
- *   o (solo peligro) una ventana supera [StabilizerConfig.fastPathThreshold].
+ *   o una ventana supera la vía rápida de la categoría
+ *   ([StabilizerConfig.fastPathThresholdByCategory]: peligro y vidrio roto).
  * - Mientras dura: no se emite nada más (un sonido largo = un evento).
  * - Fin: N ventanas seguidas por debajo de [StabilizerConfig.offThreshold].
  *
@@ -71,7 +72,7 @@ class DetectionStabilizer(private val config: StabilizerConfig, private val hopM
             if (!track.active) {
                 val threshold = config.onThresholdFor(category)
                 val positives = track.history.filterNotNull().filter { it.score >= threshold }
-                val fast = category.danger && score >= config.fastPathThreshold
+                val fast = config.fastPathThresholdFor(category)?.let { score >= it } ?: false
                 if (fast || positives.size >= config.confirmRequired) {
                     val best = (positives + listOfNotNull(current)).maxBy { it.score }
                     track.active = true
