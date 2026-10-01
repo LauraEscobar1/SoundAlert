@@ -43,6 +43,9 @@ class AudioPipeline(
     suspend fun run() = coroutineScope {
         require(source.sampleRate == config.sampleRate) { "Frecuencia de la fuente distinta a la del modelo" }
         require(classifier.inputSamples == config.windowSamples) { "La ventana no coincide con la entrada del modelo" }
+        require(mapper.detection == config.stabilizer) {
+            "LabelMapper y el pipeline deben usar la misma configuración de estabilización (PipelineConfig.stabilizer)"
+        }
 
         var dropped = 0L
         val work = Channel<Work>(capacity = 2, onBufferOverflow = BufferOverflow.DROP_OLDEST) {
