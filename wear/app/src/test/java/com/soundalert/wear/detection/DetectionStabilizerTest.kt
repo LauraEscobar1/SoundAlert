@@ -5,6 +5,8 @@ import com.soundalert.wear.classifier.SoundCategory
 import com.soundalert.wear.classifier.SoundCategory.CAR_HORN
 import com.soundalert.wear.classifier.SoundCategory.DOORBELL
 import com.soundalert.wear.classifier.SoundCategory.SIREN
+import com.soundalert.wear.config.DEFAULT_FAST_PATH_THRESHOLDS
+import com.soundalert.wear.config.DEFAULT_ON_THRESHOLDS
 import com.soundalert.wear.config.StabilizerConfig
 import com.soundalert.wear.detection.DetectionEvent.Ended
 import com.soundalert.wear.detection.DetectionEvent.Started
@@ -110,6 +112,143 @@ class DetectionStabilizerTest {
         assertEquals(1, events.size)
         assertEquals(Ended(SIREN, 0.9f, 500, t - hop), events.single())
         assertTrue(stabilizer.activeCategories.isEmpty())
+    }
+
+    // ---------- Umbrales por categoría (DEFAULT_ON_THRESHOLDS) ----------
+
+    @Test
+    fun `tabla de umbrales revisada`() {
+        assertEquals(
+            mapOf(
+                SIREN to 0.35f,
+                SoundCategory.FIRE_ALARM to 0.35f,
+                SoundCategory.SMOKE_ALARM to 0.35f,
+                SoundCategory.GENERAL_ALARM to 0.50f,
+                CAR_HORN to 0.25f,
+                SoundCategory.CAR_ALARM to 0.50f,
+                SoundCategory.TIRE_SKID to 0.50f,
+                SoundCategory.REVERSING_VEHICLE to 0.50f,
+                SoundCategory.TRAIN_HORN to 0.50f,
+                SoundCategory.BICYCLE_BELL to 0.35f,
+                SoundCategory.GLASS_BREAK to 0.50f,
+                SoundCategory.SCREAM to 0.50f,
+                SoundCategory.BABY_CRYING to 0.35f,
+                SoundCategory.DOG_BARK to 0.35f,
+                SoundCategory.BELL to 0.50f,
+                SoundCategory.WARNING_SIGNAL to 0.50f,
+                DOORBELL to 0.35f,
+                SoundCategory.DOOR_KNOCK to 0.35f,
+                SoundCategory.PHONE_RING to 0.35f,
+                SoundCategory.ALARM_CLOCK to 0.35f,
+                SoundCategory.WATER_RUNNING to 0.35f,
+            ),
+            DEFAULT_ON_THRESHOLDS,
+        )
+    }
+
+    @Test
+    fun `todas las categorias conocidas tienen un umbral explicito`() {
+        assertEquals(SoundCategory.KNOWN.toSet(), DEFAULT_ON_THRESHOLDS.keys)
+    }
+
+    @Test
+    fun `via rapida solo para peligro (0,60) y vidrio roto (0,70)`() {
+        assertEquals(
+            mapOf(SIREN to 0.60f, SoundCategory.FIRE_ALARM to 0.60f, SoundCategory.SMOKE_ALARM to 0.60f, SoundCategory.GLASS_BREAK to 0.70f),
+            DEFAULT_FAST_PATH_THRESHOLDS,
+        )
+    }
+
+    @Test
+    fun `vidrio roto - una ventana fuerte basta, una media no`() {
+        val fast = window(SoundCategory.GLASS_BREAK to 0.75f).single() as Started
+        assertTrue(fast.fastPath)
+        val other = DetectionStabilizer(StabilizerConfig(), hop)
+        assertTrue(other.update(listOf(CategoryScore(SoundCategory.GLASS_BREAK, 0.65f, "Shatter")), 0).isEmpty())
+    }
+
+    @Test
+    fun `vidrio roto con 0,55 en 2 de 3 ventanas tambien inicia evento`() {
+        assertTrue(window(SoundCategory.GLASS_BREAK to 0.55f).isEmpty())
+        assertTrue(window(SoundCategory.GLASS_BREAK to 0.55f).single() is Started)
+    }
+
+    @Test
+    fun `categorias nuevas sin datos exigen 0,50 (grito con 0,45 no inicia evento)`() {
+        assertTrue((1..10).flatMap { window(SoundCategory.SCREAM to 0.45f) }.isEmpty())
+        assertTrue(window(SoundCategory.SCREAM to 0.55f).isEmpty())
+        assertTrue(window(SoundCategory.SCREAM to 0.55f).single() is Started)
+    }
+
+    @Test
+    fun `las categorias de solo registro entran al estabilizador con 2 de 3 y sin via rapida`() {
+        assertTrue(window(SoundCategory.WARNING_SIGNAL to 0.95f).isEmpty())
+        assertTrue(window(SoundCategory.WARNING_SIGNAL to 0.95f).single() is Started)
+        // Campana por debajo de su umbral (0,50): no inicia evento (el fin del pitido sí puede aparecer).
+        val bell = (1..10).flatMap { window(SoundCategory.BELL to 0.45f) }
+        assertTrue(bell.none { it is Started })
+    }
+
+    @Test
+    fun `una alarma general alta no tiene via rapida`() {
+        assertTrue(window(SoundCategory.GENERAL_ALARM to 0.95f).isEmpty())
+    }
+
+    @Test
+    fun `vidrio roto usa la histeresis normal (2 s), no la de peligro`() {
+        window(SoundCategory.GLASS_BREAK to 0.9f)
+        assertTrue((1..3).flatMap { window() }.isEmpty())
+        assertTrue(window().single() is Ended)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `la via rapida no puede ser menor que el umbral de la categoria`() {
+        StabilizerConfig(fastPathThresholdByCategory = mapOf(SoundCategory.SCREAM to 0.40f))
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `UNKNOWN no puede tener via rapida`() {
+        StabilizerConfig(fastPathThresholdByCategory = mapOf(SoundCategory.UNKNOWN to 0.9f))
+    }
+
+    @Test
+    fun `CAR_HORN con 0,30 en 2 de 3 ventanas inicia evento`() {
+        window(CAR_HORN to 0.30f)
+        assertEquals(CAR_HORN, (window(CAR_HORN to 0.30f).single() as Started).category)
+    }
+
+    @Test
+    fun `CAR_HORN por debajo de su umbral no inicia evento`() {
+        assertTrue((1..10).flatMap { window(CAR_HORN to 0.24f) }.isEmpty())
+    }
+
+    @Test
+    fun `SIREN mantiene 0,35 - con 0,30 no inicia evento`() {
+        assertTrue((1..10).flatMap { window(SIREN to 0.30f) }.isEmpty())
+        assertEquals(1, (1..2).flatMap { window(SIREN to 0.36f) }.size)
+    }
+
+    @Test
+    fun `bajar CAR_HORN no baja las demas categorias`() {
+        assertTrue((1..10).flatMap { window(DOORBELL to 0.30f) }.isEmpty())
+    }
+
+    @Test
+    fun `CAR_HORN conserva la histeresis y el 2 de 3`() {
+        assertTrue(window(CAR_HORN to 0.30f).isEmpty()) // una ventana sola no basta
+        assertTrue(window(CAR_HORN to 0.30f).single() is Started)
+        assertTrue((1..3).flatMap { window() }.isEmpty()) // 1,5 s de silencio: aún no termina
+        assertTrue(window().single() is Ended)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `un umbral por categoria no puede ser menor o igual que offThreshold`() {
+        StabilizerConfig(onThresholdByCategory = mapOf(CAR_HORN to 0.15f))
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `UNKNOWN no puede tener umbral`() {
+        StabilizerConfig(onThresholdByCategory = mapOf(SoundCategory.UNKNOWN to 0.5f))
     }
 
     @Test
