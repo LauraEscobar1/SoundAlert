@@ -49,6 +49,20 @@ class YamnetClassifierTest {
         Log.i(TAG, "Silencio digital → top 5: ${mapper.topLabels(scores, 5)}")
         val strong = mapper.map(scores).filter { it.score >= 0.35f }
         assertTrue("Falsos positivos en silencio: $strong", strong.isEmpty())
+        // Con el modelo real: la clase principal (Silence) no tiene mapeo → UNKNOWN, nunca otra categoría.
+        val result = mapper.classify(scores)
+        assertEquals("Silence", result.top.label)
+        assertEquals(SoundCategory.UNKNOWN, result.topCategory)
+    }
+
+    /** Un tono puro (clase principal "Beep, bleep" o "Sine wave") tampoco es una categoría de SoundAlert. */
+    @Test
+    fun tonoPuroEsUnknown() {
+        val tone = FloatArray(15_600) { (0.5 * sin(2 * PI * 1_000 * it / 16_000)).toFloat() }
+        val result = mapper.classify(classifier.classify(tone))
+        Log.i(TAG, "Tono 1 kHz → ${result.top} → ${result.topCategory}, conocidas=${result.known.take(3)}")
+        assertEquals(SoundCategory.UNKNOWN, result.topCategory)
+        assertTrue(result.known.none { it.score >= 0.35f })
     }
 
     /** Solo informativo: qué responde el modelo a señales sintéticas. */
