@@ -14,12 +14,16 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.soundalert.wear.MainActivity
 import com.soundalert.wear.R
+import com.soundalert.wear.SoundAlertRuntime
+import com.soundalert.wear.alert.Alert
+import com.soundalert.wear.alert.AlertStatus
 import com.soundalert.wear.audio.MicAudioSource
 import com.soundalert.wear.classifier.YamnetClassifier
 import com.soundalert.wear.config.PipelineConfig
 import com.soundalert.wear.pipeline.AudioPipeline
 import com.soundalert.wear.pipeline.PipelineStatus
 import com.soundalert.wear.pipeline.PipelineStatus.Phase
+import com.soundalert.wear.rules.Priority
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +32,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 
@@ -52,6 +58,12 @@ class ListeningService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_ACK) {
+            // Confirmación desde la notificación: no toca el micrófono ni YAMNet.
+            intent.getStringExtra(EXTRA_ALERT_ID)?.let { SoundAlertRuntime.alertManager(this).acknowledge(it) }
+            if (pipelineJob?.isActive != true) stopSelf()
+            return START_NOT_STICKY
+        }
         if (intent?.action == ACTION_STOP) {
             Log.i(TAG, "Pausa solicitada por el usuario")
             stopSelf()
@@ -60,7 +72,7 @@ class ListeningService : Service() {
         if (pipelineJob?.isActive == true) return START_NOT_STICKY
 
         try {
-            startForeground(NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+            startForeground(NOTIFICATION_ID, buildNotification(danger = null), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
         } catch (e: ForegroundServiceStartNotAllowedException) {
             fail("Android no permite iniciar la escucha desde segundo plano. Abre la app y pulsa Activar.", e)
             return START_NOT_STICKY
@@ -71,6 +83,7 @@ class ListeningService : Service() {
 
         PipelineStatus.reset(Phase.STARTING)
         startPipeline()
+        showActiveDangerInNotification()
         return START_NOT_STICKY
     }
 
@@ -93,14 +106,19 @@ class ListeningService : Service() {
                     PipelineStatus.update { it.copy(phase = if (silenced) Phase.SILENCED else Phase.LISTENING) }
                 }
                 PipelineStatus.update { it.copy(phase = Phase.LISTENING) }
+                val alertManager = SoundAlertRuntime.alertManager(applicationContext)
                 Log.i(TAG, "Escucha continua iniciada con ${classifier.info} y $config")
+                Log.i(CONTEXT_TAG, "contexto actual=${SoundAlertRuntime.contextManager.current}")
                 AudioPipeline(
                     source = source,
                     classifier = classifier,
-                    mapper = YamnetClassifier.loadLabelMapper(applicationContext),
+                    // Misma configuración de estabilización para el mapeo y el pipeline.
+                    mapper = YamnetClassifier.loadLabelMapper(applicationContext, config.stabilizer),
                     config = config,
                     captureDispatcher = capture,
                     inferenceDispatcher = inference,
+                    // Evento estable → contexto → regla → prioridad → alerta → vibración.
+                    onEvent = alertManager::onDetection,
                 ).run()
             } catch (e: CancellationException) {
                 throw e
@@ -127,7 +145,20 @@ class ListeningService : Service() {
         super.onDestroy()
     }
 
-    private fun buildNotification(): Notification {
+    /** Mientras haya un DANGER activo, la notificación lo muestra con una acción "Confirmar". */
+    private fun showActiveDangerInNotification() {
+        val alerts = SoundAlertRuntime.alertManager(applicationContext).alerts
+        scope.launch {
+            alerts
+                .map { list -> list.firstOrNull { it.status == AlertStatus.ACTIVE && it.priority == Priority.DANGER } }
+                .distinctUntilChanged()
+                .collect { danger ->
+                    getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification(danger))
+                }
+        }
+    }
+
+    private fun buildNotification(danger: Alert?): Notification {
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
             NotificationChannel(CHANNEL_ID, getString(R.string.channel_listening), NotificationManager.IMPORTANCE_LOW),
@@ -138,15 +169,27 @@ class ListeningService : Service() {
         val stop = PendingIntent.getService(
             this, 1, Intent(this, ListeningService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE,
         )
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_listening)
-            .setContentTitle(getString(R.string.notification_title))
-            .setContentText(getString(R.string.notification_text))
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
             .setContentIntent(open)
-            .addAction(0, getString(R.string.action_pause), stop)
-            .build()
+        if (danger != null) {
+            val ack = PendingIntent.getService(
+                this,
+                2,
+                Intent(this, ListeningService::class.java).setAction(ACTION_ACK).putExtra(EXTRA_ALERT_ID, danger.id),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            builder.setContentTitle(getString(R.string.notification_danger_title, danger.category.name))
+                .setContentText(getString(R.string.notification_danger_text))
+                .addAction(0, getString(R.string.action_acknowledge), ack)
+        } else {
+            builder.setContentTitle(getString(R.string.notification_title))
+                .setContentText(getString(R.string.notification_text))
+        }
+        return builder.addAction(0, getString(R.string.action_pause), stop).build()
     }
 
     companion object {
@@ -154,6 +197,9 @@ class ListeningService : Service() {
         private const val CHANNEL_ID = "listening"
         private const val NOTIFICATION_ID = 1
         private const val ACTION_STOP = "com.soundalert.wear.STOP"
+        private const val ACTION_ACK = "com.soundalert.wear.ACK"
+        private const val EXTRA_ALERT_ID = "alertId"
+        private const val CONTEXT_TAG = "SA/Context"
 
         fun start(context: Context) = context.startForegroundService(Intent(context, ListeningService::class.java))
 
