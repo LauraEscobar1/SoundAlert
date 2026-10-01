@@ -96,6 +96,23 @@ class DetectionStabilizerTest {
     }
 
     @Test
+    fun `UNKNOWN nunca genera eventos aunque llegue con puntuacion alta`() {
+        val unknown = listOf(CategoryScore(SoundCategory.UNKNOWN, 0.95f, "Music"))
+        val events = (0 until 10).flatMap { stabilizer.update(unknown, it * hop) }
+        assertTrue(events.isEmpty())
+        assertTrue(stabilizer.activeCategories.isEmpty())
+    }
+
+    @Test
+    fun `despues de una sirena, ventanas desconocidas solo cierran la sirena`() {
+        assertTrue(window(SIREN to 0.9f).single() is Started)
+        val events = (1..10).flatMap { window(SoundCategory.UNKNOWN to 0.89f) }
+        assertEquals(1, events.size)
+        assertEquals(Ended(SIREN, 0.9f, 500, t - hop), events.single())
+        assertTrue(stabilizer.activeCategories.isEmpty())
+    }
+
+    @Test
     fun `umbral especifico por categoria`() {
         val strict = DetectionStabilizer(StabilizerConfig(onThresholdByCategory = mapOf(DOORBELL to 0.8f)), hop)
         val w = listOf(CategoryScore(DOORBELL, 0.6f, "Doorbell"))
