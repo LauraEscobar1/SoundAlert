@@ -34,6 +34,11 @@ android {
         compose = true
     }
 
+    testOptions {
+        // Los tests JVM ejecutan código que escribe en android.util.Log.
+        unitTests.isReturnDefaultValues = true
+    }
+
     androidResources {
         // El modelo se mapea en memoria directamente desde el APK.
         noCompress += "tflite"
