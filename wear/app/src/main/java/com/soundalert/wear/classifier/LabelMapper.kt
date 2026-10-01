@@ -9,37 +9,75 @@ data class CategoryScore(val category: SoundCategory, val score: Float, val labe
 data class LabelScore(val label: String, val score: Float)
 
 /**
+ * Resultado de una ventana.
+ *
+ * [top]/[topCategory]: la clase con más puntuación y su categoría, o
+ * [SoundCategory.UNKNOWN] si no tiene mapeo. La puntuación de una clase
+ * UNKNOWN es la confianza en esa clase (p. ej. Music), no en una categoría.
+ *
+ * [known]: categorías conocidas con puntuación > 0, de mayor a menor. Es lo
+ * único que entra al estabilizador. YAMNet es multietiqueta: una sirena de
+ * fondo mientras alguien habla aparece aquí aunque [top] sea Speech.
+ */
+data class WindowClassification(
+    val top: LabelScore,
+    val topCategory: SoundCategory,
+    val known: List<CategoryScore>,
+)
+
+/**
  * Traduce las 521 clases de YAMNet (ontología AudioSet) a [SoundCategory].
  * Cada nombre de [YAMNET_CATEGORY_LABELS] se ha comprobado contra
  * yamnet_class_map.csv; si alguno no existiera, el constructor falla.
- * Las clases no mapeadas (Speech, Music…) se ignoran.
+ * Las clases sin mapeo (Speech, Music…) son [SoundCategory.UNKNOWN].
+ * No guarda estado entre ventanas: cada resultado depende solo de sus puntuaciones.
  */
 class LabelMapper(
     val labels: List<String>,
     mapping: Map<SoundCategory, List<String>> = YAMNET_CATEGORY_LABELS,
 ) {
-    private val categoryByIndex: Array<SoundCategory?>
+    private val categoryByIndex: Array<SoundCategory>
 
     init {
+        require(SoundCategory.UNKNOWN !in mapping) { "UNKNOWN no se mapea: es la ausencia de mapeo" }
         val index = labels.withIndex().associate { (i, l) -> l to i }
-        categoryByIndex = arrayOfNulls(labels.size)
+        categoryByIndex = Array(labels.size) { SoundCategory.UNKNOWN }
         for ((category, names) in mapping) {
             for (name in names) {
                 val i = requireNotNull(index[name]) { "La clase \"$name\" no existe en el modelo" }
-                check(categoryByIndex[i] == null) { "La clase \"$name\" está asignada dos veces" }
+                check(categoryByIndex[i] == SoundCategory.UNKNOWN) { "La clase \"$name\" está asignada dos veces" }
                 categoryByIndex[i] = category
             }
         }
     }
 
-    fun categoryOf(classIndex: Int): SoundCategory? = categoryByIndex.getOrNull(classIndex)
+    /** Categoría de una clase del modelo; [SoundCategory.UNKNOWN] si no tiene mapeo. */
+    fun categoryOf(classIndex: Int): SoundCategory {
+        require(classIndex in labels.indices) { "Índice de clase fuera de rango: $classIndex" }
+        return categoryByIndex[classIndex]
+    }
 
-    /** Puntuación por categoría = máximo de sus clases. Ordenadas de mayor a menor. */
+    fun classify(scores: FloatArray): WindowClassification {
+        val known = map(scores)
+        var topIndex = 0
+        for (i in scores.indices) if (scores[i] > scores[topIndex]) topIndex = i
+        return WindowClassification(
+            top = LabelScore(labels[topIndex], scores[topIndex]),
+            topCategory = categoryByIndex[topIndex],
+            known = known,
+        )
+    }
+
+    /**
+     * Categorías CONOCIDAS con puntuación > 0 (máximo de sus clases), de mayor
+     * a menor. Nunca incluye [SoundCategory.UNKNOWN] ni categorías a 0.
+     */
     fun map(scores: FloatArray): List<CategoryScore> {
         require(scores.size == labels.size) { "Se esperaban ${labels.size} puntuaciones, llegaron ${scores.size}" }
         val best = HashMap<SoundCategory, CategoryScore>()
         for (i in scores.indices) {
-            val category = categoryByIndex[i] ?: continue
+            val category = categoryByIndex[i]
+            if (!category.known || scores[i] <= 0f) continue
             val current = best[category]
             if (current == null || scores[i] > current.score) {
                 best[category] = CategoryScore(category, scores[i], labels[i])
