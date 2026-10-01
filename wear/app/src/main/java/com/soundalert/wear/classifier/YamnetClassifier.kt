@@ -2,6 +2,7 @@ package com.soundalert.wear.classifier
 
 import android.content.Context
 import android.util.Log
+import com.soundalert.wear.config.StabilizerConfig
 import org.tensorflow.lite.DataType
 import org.tensorflow.lite.Interpreter
 import java.io.FileInputStream
@@ -92,7 +93,8 @@ class YamnetClassifier(context: Context, threads: Int = 1) : SoundClassifier {
                 }
             }
 
-        fun loadLabelMapper(context: Context): LabelMapper =
-            LabelMapper(context.assets.open(CLASS_MAP_ASSET).reader().use(LabelMapper::parseClassMap))
+        /** [detection] debe ser la configuración del pipeline (PipelineConfig.stabilizer). */
+        fun loadLabelMapper(context: Context, detection: StabilizerConfig): LabelMapper =
+            LabelMapper(context.assets.open(CLASS_MAP_ASSET).reader().use(LabelMapper::parseClassMap), detection)
     }
 }
