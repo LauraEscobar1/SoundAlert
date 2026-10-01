@@ -48,7 +48,8 @@ class DetectionStabilizer(private val config: StabilizerConfig, private val hopM
         var windowsBelow = 0
     }
 
-    private val tracks = SoundCategory.entries.associateWith { Track() }
+    // Solo categorías conocidas: UNKNOWN no tiene seguimiento y nunca genera eventos.
+    private val tracks = SoundCategory.KNOWN.associateWith { Track() }
 
     val activeCategories: Set<SoundCategory>
         get() = tracks.filterValues { it.active }.keys
@@ -58,7 +59,7 @@ class DetectionStabilizer(private val config: StabilizerConfig, private val hopM
      * una ventana no inferida por la puerta de energía se pasa como lista vacía.
      */
     fun update(scores: List<CategoryScore>, atMs: Long): List<DetectionEvent> {
-        val byCategory = scores.associateBy { it.category }
+        val byCategory = scores.filter { it.category.known }.associateBy { it.category }
         val events = mutableListOf<DetectionEvent>()
 
         for ((category, track) in tracks) {
