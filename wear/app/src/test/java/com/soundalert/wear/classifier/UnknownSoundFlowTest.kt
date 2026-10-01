@@ -1,5 +1,6 @@
 package com.soundalert.wear.classifier
 
+import com.soundalert.wear.config.PipelineConfig
 import com.soundalert.wear.config.StabilizerConfig
 import com.soundalert.wear.detection.DetectionEvent
 import com.soundalert.wear.detection.DetectionStabilizer
@@ -15,7 +16,7 @@ import java.io.File
 class UnknownSoundFlowTest {
 
     private val labels = File("src/main/assets/yamnet_class_map.csv").reader().use(LabelMapper::parseClassMap)
-    private val mapper = LabelMapper(labels)
+    private val mapper = LabelMapper(labels, PipelineConfig().stabilizer)
     private val hop = 500L
     private val stabilizer = DetectionStabilizer(StabilizerConfig(), hop)
     private var t = 0L
