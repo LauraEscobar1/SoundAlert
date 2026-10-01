@@ -1,7 +1,6 @@
 package com.soundalert.wear.classifier
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -29,8 +28,8 @@ class LabelMapperTest {
     @Test
     fun `todas las clases del mapeo existen en el CSV (si no, el constructor falla)`() {
         YAMNET_CATEGORY_LABELS.values.flatten().forEach { assertTrue(it, it in labels) }
-        // Cada categoría de la v1 tiene al menos una clase.
-        assertEquals(SoundCategory.entries.toSet(), YAMNET_CATEGORY_LABELS.keys)
+        // Cada categoría conocida de la v1 tiene al menos una clase; UNKNOWN ninguna.
+        assertEquals(SoundCategory.KNOWN.toSet(), YAMNET_CATEGORY_LABELS.keys)
     }
 
     @Test(expected = IllegalArgumentException::class)
@@ -38,24 +37,75 @@ class LabelMapperTest {
         LabelMapper(labels, mapOf(SoundCategory.DOORBELL to listOf("Kettle whistle")))
     }
 
+    @Test(expected = IllegalArgumentException::class)
+    fun `UNKNOWN no puede mapearse explicitamente`() {
+        LabelMapper(labels, mapOf(SoundCategory.UNKNOWN to listOf("Music")))
+    }
+
     @Test
     fun `clases verificadas se traducen a su categoria`() {
         val cases = mapOf(
             "Siren" to SoundCategory.SIREN,
+            "Police car (siren)" to SoundCategory.SIREN,
             "Ambulance (siren)" to SoundCategory.SIREN,
+            "Emergency vehicle" to SoundCategory.SIREN,
             "Vehicle horn, car horn, honking" to SoundCategory.CAR_HORN,
+            "Bicycle bell" to SoundCategory.BICYCLE_BELL,
             "Doorbell" to SoundCategory.DOORBELL,
+            "Ding-dong" to SoundCategory.DOORBELL,
+            "Knock" to SoundCategory.DOOR_KNOCK,
             "Smoke detector, smoke alarm" to SoundCategory.SMOKE_ALARM,
             "Baby cry, infant cry" to SoundCategory.BABY_CRYING,
         )
-        for ((label, category) in cases) assertEquals(label, category, mapper.categoryOf(labels.indexOf(label)))
+        for ((label, category) in cases) {
+            assertEquals(label, category, mapper.categoryOf(labels.indexOf(label)))
+            // También como clase principal de una ventana.
+            val result = mapper.classify(scores(label to 0.8f))
+            assertEquals(label, category, result.topCategory)
+            assertEquals(label, CategoryScore(category, 0.8f, label), result.known.single())
+        }
     }
 
     @Test
-    fun `voz, musica y silencio no generan categoria`() {
-        for (label in listOf("Speech", "Music", "Silence", "Bell", "Whistle", "Alarm")) {
-            assertNull(label, mapper.categoryOf(labels.indexOf(label)))
+    fun `clases sin mapeo son UNKNOWN`() {
+        for (label in listOf("Speech", "Music", "Walk, footsteps", "Silence", "Bell", "Whistle", "Alarm")) {
+            assertEquals(label, SoundCategory.UNKNOWN, mapper.categoryOf(labels.indexOf(label)))
         }
+    }
+
+    /** Los casos observados en las pruebas reales: antes se mostraban como SIREN 0.00. */
+    @Test
+    fun `una clase principal sin mapeo da UNKNOWN y ninguna categoria conocida`() {
+        for (label in listOf("Speech", "Music", "Walk, footsteps")) {
+            val result = mapper.classify(scores(label to 0.89f))
+            assertEquals(label, SoundCategory.UNKNOWN, result.topCategory)
+            assertEquals(LabelScore(label, 0.89f), result.top)
+            assertTrue("$label no debe producir categorías conocidas: ${result.known}", result.known.isEmpty())
+        }
+    }
+
+    @Test
+    fun `nunca devuelve categorias a cero ni UNKNOWN en la lista de conocidas`() {
+        assertTrue(mapper.map(FloatArray(labels.size)).isEmpty())
+        val known = mapper.map(scores("Music" to 0.9f, "Siren" to 0.004f))
+        assertEquals(listOf(SoundCategory.SIREN), known.map { it.category })
+    }
+
+    @Test
+    fun `no conserva la categoria de una ventana anterior`() {
+        val siren = mapper.classify(scores("Police car (siren)" to 0.9f))
+        assertEquals(SoundCategory.SIREN, siren.topCategory)
+
+        val music = mapper.classify(scores("Music" to 0.89f))
+        assertEquals(SoundCategory.UNKNOWN, music.topCategory)
+        assertTrue(music.known.isEmpty())
+    }
+
+    @Test
+    fun `una sirena de fondo se conserva aunque la clase principal sea voz`() {
+        val result = mapper.classify(scores("Speech" to 0.7f, "Siren" to 0.5f))
+        assertEquals(SoundCategory.UNKNOWN, result.topCategory)
+        assertEquals(CategoryScore(SoundCategory.SIREN, 0.5f, "Siren"), result.known.single())
     }
 
     @Test
