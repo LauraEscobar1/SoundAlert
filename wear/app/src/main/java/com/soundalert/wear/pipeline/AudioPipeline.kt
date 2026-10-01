@@ -6,6 +6,8 @@ import com.soundalert.wear.audio.AudioRingBuffer
 import com.soundalert.wear.audio.AudioSource
 import com.soundalert.wear.audio.EnergyGate
 import com.soundalert.wear.classifier.LabelMapper
+import com.soundalert.wear.classifier.LabelScore
+import com.soundalert.wear.classifier.WindowClassification
 import com.soundalert.wear.classifier.SoundClassifier
 import com.soundalert.wear.config.PipelineConfig
 import com.soundalert.wear.detection.DetectionEvent
@@ -90,13 +92,11 @@ class AudioPipeline(
                 totalMs += ms
 
                 val top = mapper.topLabels(scores, 3)
-                val mapped = mapper.map(scores)
-                Log.i(
-                    YAMNET,
-                    String.format(Locale.US, "t=%.1fs %.1f ms top3=[%s] categoría=%s", item.audioTimeMs / 1000.0, ms, top.joinToString { "${it.label} ${fmt(it.score)}" }, mapped.firstOrNull()?.let { "${it.category} ${fmt(it.score)}" } ?: "-"),
-                )
+                val result = mapper.classify(scores)
+                Log.i(YAMNET, describe(item.audioTimeMs, ms, top, result, config.stabilizer.offThreshold))
                 PipelineStatus.update { it.copy(topLabels = top, inferences = inferences, avgInferenceMs = totalMs / inferences, droppedWindows = droppedCount()) }
-                mapped
+                // Solo categorías conocidas; UNKNOWN nunca llega al estabilizador.
+                result.known
             } else {
                 emptyList()
             }
@@ -117,6 +117,30 @@ class AudioPipeline(
         const val EVENT = "SA/Event"
 
         private fun fmt(v: Float) = String.format(Locale.US, "%.2f", v)
+
+        /**
+         * `categoría` es la de la clase principal (UNKNOWN si no tiene mapeo).
+         * `conocidas` lista las categorías que el estabilizador tiene en cuenta
+         * (por encima del umbral de fin), aunque la clase principal sea otra.
+         */
+        fun describe(
+            audioTimeMs: Long,
+            inferenceMs: Double,
+            top: List<LabelScore>,
+            result: WindowClassification,
+            minKnownScore: Float,
+        ): String {
+            val known = result.known.filter { it.score >= minKnownScore }
+            return String.format(
+                Locale.US,
+                "t=%.1fs %.1f ms top3=[%s] categoría=%s conocidas=[%s]",
+                audioTimeMs / 1000.0,
+                inferenceMs,
+                top.joinToString { "${it.label} ${fmt(it.score)}" },
+                "${result.topCategory} (${result.top.label} ${fmt(result.top.score)})",
+                known.joinToString { "${it.category} ${fmt(it.score)}" },
+            )
+        }
 
         fun describe(event: DetectionEvent): String = when (event) {
             is DetectionEvent.Started ->
