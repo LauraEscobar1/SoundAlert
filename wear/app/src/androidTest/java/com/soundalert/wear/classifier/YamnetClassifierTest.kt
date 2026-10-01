@@ -3,8 +3,10 @@ package com.soundalert.wear.classifier
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.soundalert.wear.config.PipelineConfig
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -24,7 +26,7 @@ class YamnetClassifierTest {
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val classifier = YamnetClassifier(context)
-    private val mapper = YamnetClassifier.loadLabelMapper(context)
+    private val mapper = YamnetClassifier.loadLabelMapper(context, PipelineConfig().stabilizer)
 
     @After
     fun tearDown() = classifier.close()
@@ -55,14 +57,18 @@ class YamnetClassifierTest {
         assertEquals(SoundCategory.UNKNOWN, result.topCategory)
     }
 
-    /** Un tono puro (clase principal "Beep, bleep" o "Sine wave") tampoco es una categoría de SoundAlert. */
+    /**
+     * Un tono puro: YAMNet lo clasifica como "Beep, bleep" → WARNING_SIGNAL, que es
+     * de SOLO REGISTRO (nunca alerta). Ninguna categoría alertable debe pasar el umbral.
+     */
     @Test
-    fun tonoPuroEsUnknown() {
+    fun tonoPuroEsSoloRegistro() {
         val tone = FloatArray(15_600) { (0.5 * sin(2 * PI * 1_000 * it / 16_000)).toFloat() }
         val result = mapper.classify(classifier.classify(tone))
         Log.i(TAG, "Tono 1 kHz → ${result.top} → ${result.topCategory}, conocidas=${result.known.take(3)}")
-        assertEquals(SoundCategory.UNKNOWN, result.topCategory)
-        assertTrue(result.known.none { it.score >= 0.35f })
+        assertEquals(SoundCategory.WARNING_SIGNAL, result.topCategory)
+        assertFalse(result.topCategory.alertable)
+        assertTrue(result.known.none { it.category.alertable && it.score >= 0.35f })
     }
 
     /** Solo informativo: qué responde el modelo a señales sintéticas. */
