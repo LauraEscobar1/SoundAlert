@@ -20,6 +20,7 @@ export class AlertsService {
       limit: q.limit ?? 50,
       priority: q.priority,
       since: q.since,
+      context: q.context,
       status: q.status,
     });
     return alerts.map(toAlertDto);
