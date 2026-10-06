@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
   IsBoolean,
   IsEnum,
+  IsIn,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -12,7 +13,11 @@ import {
   Min,
   ValidateIf,
 } from 'class-validator';
-import { UserContext } from '../../../domain/index.js';
+import {
+  ACTIVE_CONTEXTS,
+  DEFAULT_CONTEXT,
+  UserContext,
+} from '../../../domain/index.js';
 import { DevicePlatform } from '../../../database/entities.js';
 
 export class RegisterDeviceDto {
@@ -41,9 +46,9 @@ export class RegisterDeviceDto {
   @IsEnum(DevicePlatform)
   platform?: DevicePlatform;
 
-  @ApiPropertyOptional({ enum: UserContext, default: UserContext.HOME })
+  @ApiPropertyOptional({ enum: ACTIVE_CONTEXTS, default: DEFAULT_CONTEXT })
   @IsOptional()
-  @IsEnum(UserContext)
+  @IsIn(ACTIVE_CONTEXTS)
   currentContext?: UserContext;
 
   @ApiPropertyOptional({
@@ -73,8 +78,8 @@ export class RegisterDeviceDto {
 export class UpdateDeviceDto extends PartialType(RegisterDeviceDto) {}
 
 export class ChangeContextDto {
-  @ApiProperty({ enum: UserContext, example: UserContext.STREET })
-  @IsEnum(UserContext)
+  @ApiProperty({ enum: ACTIVE_CONTEXTS, example: UserContext.STREET })
+  @IsIn(ACTIVE_CONTEXTS)
   currentContext: UserContext;
 }
 
