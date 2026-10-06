@@ -106,7 +106,7 @@ class ListeningService : Service() {
                     PipelineStatus.update { it.copy(phase = if (silenced) Phase.SILENCED else Phase.LISTENING) }
                 }
                 PipelineStatus.update { it.copy(phase = Phase.LISTENING) }
-                val alertManager = SoundAlertRuntime.alertManager(applicationContext)
+                val contextual = SoundAlertRuntime.contextualClassifier(applicationContext)
                 Log.i(TAG, "Escucha continua iniciada con ${classifier.info} y $config")
                 Log.i(CONTEXT_TAG, "contexto actual=${SoundAlertRuntime.contextManager.current}")
                 AudioPipeline(
@@ -117,8 +117,8 @@ class ListeningService : Service() {
                     config = config,
                     captureDispatcher = capture,
                     inferenceDispatcher = inference,
-                    // Evento estable → contexto → regla → prioridad → alerta → vibración.
-                    onEvent = alertManager::onDetection,
+                    // Evento estable → contexto activo (congelado) → regla → alerta → vibración.
+                    onEvent = contextual::onEvent,
                 ).run()
             } catch (e: CancellationException) {
                 throw e

@@ -37,7 +37,7 @@ class CatalogFlowTest {
 
     private fun TestScope.play(context: SoundAlertContext, windows: Int, vararg scores: Pair<String, Float>): Run {
         val vibrator = FakeAlertVibrator()
-        val alerts = AlertManager(ContextManager(context), RuleEngine(), vibrator, AlertConfig(), backgroundScope) { testScheduler.currentTime }
+        val alerts = AlertHarness(ContextManager(context), RuleEngine(), vibrator, AlertConfig(), backgroundScope) { testScheduler.currentTime }
         val stabilizer = DetectionStabilizer(StabilizerConfig(), hop)
         val events = mutableListOf<DetectionEvent>()
         val vector = FloatArray(labels.size).also { v -> scores.forEach { (label, s) -> v[labels.indexOf(label).also { check(it >= 0) { label } }] = s } }

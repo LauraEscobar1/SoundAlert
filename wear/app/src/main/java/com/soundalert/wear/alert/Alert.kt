@@ -18,11 +18,14 @@ enum class AlertStatus {
 /** Alerta generada a partir de un evento de sonido. Queda en el historial aunque se cierre. */
 data class Alert(
     val id: String,
+    /** Detección que originó la alerta (ContextualDetection.id). */
+    val detectionId: String,
     val category: SoundCategory,
     /** Clase original de YAMNet (p. ej. "Police car (siren)"). */
     val label: String,
     val confidence: Float,
     val priority: Priority,
+    /** Contexto congelado en el momento de la detección; no se recalcula. */
     val context: SoundAlertContext,
     val createdAtMs: Long,
     val status: AlertStatus = AlertStatus.ACTIVE,

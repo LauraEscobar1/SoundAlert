@@ -29,7 +29,7 @@ class AlertManagerTest {
     private val contextManager = ContextManager(SoundAlertContext.CALLE)
     private val vibrator = FakeAlertVibrator()
 
-    private fun TestScope.manager() = AlertManager(
+    private fun TestScope.manager() = AlertHarness(
         contextManager = contextManager,
         rules = RuleEngine(),
         vibrator = vibrator,
@@ -176,7 +176,7 @@ class AlertManagerTest {
     @Test
     fun `una alerta DANGER activa nunca sale del historial aunque lleguen muchas otras`() = runTest {
         contextManager.set(SoundAlertContext.OTRO)
-        val m = AlertManager(contextManager, RuleEngine(), vibrator, AlertConfig(historySize = 3), backgroundScope) { testScheduler.currentTime }
+        val m = AlertHarness(contextManager, RuleEngine(), vibrator, AlertConfig(historySize = 3), backgroundScope) { testScheduler.currentTime }
         m.onDetection(started(SIREN))
         val siren = m.alerts.value.single().id
         for (category in listOf(CAR_HORN, DOORBELL, SoundCategory.DOOR_KNOCK, SoundCategory.PHONE_RING, SoundCategory.DOG_BARK)) {
@@ -352,7 +352,7 @@ class AlertManagerTest {
 
     @Test
     fun `intervalo 0 desactiva la repeticion`() = runTest {
-        val m = AlertManager(contextManager, RuleEngine(), vibrator, AlertConfig(dangerRepeatIntervalMs = 0), backgroundScope) { testScheduler.currentTime }
+        val m = AlertHarness(contextManager, RuleEngine(), vibrator, AlertConfig(dangerRepeatIntervalMs = 0), backgroundScope) { testScheduler.currentTime }
         m.onDetection(started(SIREN))
         advanceTimeBy(60_000); runCurrent()
         assertEquals(1, vibrator.vibrations.size)
@@ -402,7 +402,7 @@ class AlertManagerTest {
 
     @Test
     fun `el historial esta acotado`() = runTest {
-        val m = AlertManager(contextManager, RuleEngine(), vibrator, AlertConfig(historySize = 3, cooldownMs = 0), backgroundScope) { testScheduler.currentTime }
+        val m = AlertHarness(contextManager, RuleEngine(), vibrator, AlertConfig(historySize = 3, cooldownMs = 0), backgroundScope) { testScheduler.currentTime }
         repeat(5) {
             m.onDetection(started(CAR_HORN))
             m.acknowledge(m.activeAlerts.single().id)

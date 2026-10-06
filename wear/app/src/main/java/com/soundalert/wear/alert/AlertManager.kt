@@ -3,10 +3,9 @@ package com.soundalert.wear.alert
 import android.util.Log
 import com.soundalert.wear.classifier.SoundCategory
 import com.soundalert.wear.config.AlertConfig
-import com.soundalert.wear.context.ContextManager
+import com.soundalert.wear.context.ContextualDetection
 import com.soundalert.wear.detection.DetectionEvent
 import com.soundalert.wear.rules.Priority
-import com.soundalert.wear.rules.RuleEngine
 import com.soundalert.wear.vibration.AlertVibrator
 import com.soundalert.wear.vibration.VibrationPattern
 import kotlinx.coroutines.CoroutineScope
@@ -19,10 +18,11 @@ import java.util.Locale
 import java.util.UUID
 
 /**
- * DetectionEvent → contexto actual → regla → prioridad → Alert → vibración.
+ * ContextualDetection (categoría + contexto congelado + regla) → Alert → vibración.
+ * El contexto y la regla los resuelve ContextualClassifier; aquí no se leen.
  *
- * - UNKNOWN y sonidos sin regla en el contexto actual se ignoran. Las categorías
- *   de solo registro (BELL, WARNING_SIGNAL) se anotan en el log y nada más.
+ * - UNKNOWN y sonidos sin regla en su contexto se ignoran. Las categorías de solo
+ *   registro (BELL, WARNING_SIGNAL) se anotan en el log y nada más.
  * - Un sonido sostenido ya llega como un único `Started` (DetectionStabilizer).
  *   Además, no se crea otra alerta de una categoría que ya tiene una ACTIVE, ni
  *   antes de [AlertConfig.cooldownMs] desde la última alerta de esa categoría.
@@ -46,8 +46,6 @@ import java.util.UUID
  * vibrar) se modifica bajo un único lock.
  */
 class AlertManager(
-    private val contextManager: ContextManager,
-    private val rules: RuleEngine,
     private val vibrator: AlertVibrator,
     private val config: AlertConfig,
     private val scope: CoroutineScope,
@@ -70,19 +68,15 @@ class AlertManager(
 
     val activeAlerts: List<Alert> get() = state.value.filter { it.status == AlertStatus.ACTIVE }
 
-    fun onDetection(event: DetectionEvent) {
-        when (event) {
-            is DetectionEvent.Started -> onStarted(event)
-            is DetectionEvent.Ended -> {
-                val active = activeAlerts.firstOrNull { it.category == event.category }
-                if (active?.priority == Priority.DANGER) {
-                    Log.i(TAG, "${event.category} dejó de oírse; la alerta DANGER id=${active.id} sigue ACTIVE hasta que se confirme")
-                }
-            }
+    /** Fin de un sonido: no cierra alertas (un DANGER sigue ACTIVE hasta confirmarse). */
+    fun onSoundEnded(event: DetectionEvent.Ended) {
+        val active = activeAlerts.firstOrNull { it.category == event.category }
+        if (active?.priority == Priority.DANGER) {
+            Log.i(TAG, "${event.category} dejó de oírse; la alerta DANGER id=${active.id} sigue ACTIVE hasta que se confirme")
         }
     }
 
-    private fun onStarted(event: DetectionEvent.Started) {
+    fun onDetection(event: ContextualDetection) {
         if (!event.category.known) {
             Log.w(TAG, "Evento UNKNOWN descartado (no debería llegar aquí)")
             return
@@ -94,13 +88,9 @@ class AlertManager(
             )
             return
         }
-        val context = contextManager.current
-        val rule = rules.match(event.category, context)
-        if (rule == null) {
-            Log.i(RULE_TAG, "${event.category} + $context -> sin regla (no relevante, se ignora)")
-            return
-        }
-        Log.i(RULE_TAG, "${event.category} + $context -> ${rule.priority}")
+        // Contexto y regla ya resueltos y congelados por ContextualClassifier.
+        val context = event.context
+        val rule = event.rule ?: return
 
         synchronized(lock) {
             val now = clock()
@@ -128,6 +118,7 @@ class AlertManager(
             }
             Alert(
                 id = UUID.randomUUID().toString(),
+                detectionId = event.id,
                 category = event.category,
                 label = event.label,
                 confidence = event.confidence,
@@ -226,6 +217,5 @@ class AlertManager(
 
     private companion object {
         const val TAG = "SA/Alert"
-        const val RULE_TAG = "SA/Rule"
     }
 }

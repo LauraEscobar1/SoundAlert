@@ -31,11 +31,11 @@ class DetectionToAlertFlowTest {
     private val vibrator = FakeAlertVibrator()
     private val stabilizer = DetectionStabilizer(StabilizerConfig(), hop)
 
-    private fun TestScope.manager() = AlertManager(
+    private fun TestScope.manager() = AlertHarness(
         ContextManager(SoundAlertContext.CALLE), RuleEngine(), vibrator, AlertConfig(), backgroundScope,
     ) { testScheduler.currentTime }
 
-    private fun TestScope.windows(m: AlertManager, n: Int, category: SoundCategory?, score: Float = 0.8f) = repeat(n) {
+    private fun TestScope.windows(m: AlertHarness, n: Int, category: SoundCategory?, score: Float = 0.8f) = repeat(n) {
         val scores = category?.let { listOf(CategoryScore(it, score, it.name)) }.orEmpty()
         stabilizer.update(scores, testScheduler.currentTime).forEach(m::onDetection)
         advanceTimeBy(hop)

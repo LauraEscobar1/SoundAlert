@@ -4,6 +4,8 @@ import android.content.Context
 import com.soundalert.wear.alert.AlertManager
 import com.soundalert.wear.config.AlertConfig
 import com.soundalert.wear.context.ContextManager
+import com.soundalert.wear.context.ContextualClassifier
+import com.soundalert.wear.context.DetectionHistory
 import com.soundalert.wear.rules.RuleEngine
 import com.soundalert.wear.vibration.AndroidAlertVibrator
 import kotlinx.coroutines.CoroutineScope
@@ -18,16 +20,29 @@ import kotlinx.coroutines.SupervisorJob
 object SoundAlertRuntime {
     val contextManager = ContextManager()
 
+    /** Todas las detecciones con su contexto (alerten o no). */
+    val detectionHistory = DetectionHistory()
+
     @Volatile private var alertManager: AlertManager? = null
+    @Volatile private var contextualClassifier: ContextualClassifier? = null
 
     fun alertManager(context: Context): AlertManager =
         alertManager ?: synchronized(this) {
             alertManager ?: AlertManager(
-                contextManager = contextManager,
-                rules = RuleEngine(),
                 vibrator = AndroidAlertVibrator(context.applicationContext),
                 config = AlertConfig(),
                 scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
             ).also { alertManager = it }
+        }
+
+    /** Entrada de los eventos del pipeline: categoría + contexto activo → regla → alerta. */
+    fun contextualClassifier(context: Context): ContextualClassifier =
+        contextualClassifier ?: synchronized(this) {
+            contextualClassifier ?: ContextualClassifier(
+                contextManager = contextManager,
+                rules = RuleEngine(),
+                history = detectionHistory,
+                alerts = alertManager(context),
+            ).also { contextualClassifier = it }
         }
 }
