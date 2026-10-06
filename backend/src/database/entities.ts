@@ -112,6 +112,7 @@ export interface AlertQuery {
   deviceId: string;
   priority?: PriorityLevel;
   status?: AlertStatus;
+  context?: UserContext;
   since?: Date;
   limit: number;
 }
@@ -119,6 +120,7 @@ export interface AlertQuery {
 export interface DetectionQuery {
   deviceId: string;
   alertedOnly?: boolean;
+  context?: UserContext;
   since?: Date;
   limit: number;
 }
