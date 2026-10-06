@@ -349,6 +349,7 @@ export class SupabaseDetectionsRepository extends DetectionsRepository {
       .limit(q.limit);
     if (q.alertedOnly) query = query.eq('alerted', true);
     if (q.since) query = query.gte('created_at', q.since.toISOString());
+    if (q.context) query = query.eq('context', q.context);
     const rows = check(await query, 'listar detecciones');
     return (rows ?? []).map(toDetection);
   }
@@ -431,6 +432,7 @@ export class SupabaseAlertsRepository extends AlertsRepository {
     if (q.priority) query = query.eq('priority', q.priority);
     if (q.status) query = query.eq('status', q.status);
     if (q.since) query = query.gte('created_at', q.since.toISOString());
+    if (q.context) query = query.eq('context', q.context);
     const rows = check(await query, 'listar alertas');
     return (rows ?? []).map(toAlert);
   }
