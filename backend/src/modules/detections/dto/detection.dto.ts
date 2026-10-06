@@ -7,6 +7,7 @@ import {
   IsBoolean,
   IsDate,
   IsEnum,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -21,6 +22,7 @@ import {
   DetectionOutcome,
   SoundCategory,
   UserContext,
+  ACTIVE_CONTEXTS,
 } from '../../../domain/index.js';
 import { ClassificationSource } from '../../../database/entities.js';
 import { AlertDto } from '../../alerts/dto/alert.dto.js';
@@ -60,12 +62,13 @@ export class AudioDetectionDto {
   durationMs?: number;
 
   @ApiPropertyOptional({
-    enum: UserContext,
+    enum: ACTIVE_CONTEXTS,
     example: UserContext.STREET,
-    description: 'Si se omite se usa el contexto actual del dispositivo',
+    description:
+      'Contexto activo (HOME, STREET, OTHER). Si se omite se usa el contexto actual del dispositivo',
   })
   @IsOptional()
-  @IsEnum(UserContext)
+  @IsIn(ACTIVE_CONTEXTS)
   context?: UserContext;
 
   @ApiPropertyOptional({
@@ -119,9 +122,13 @@ export class ClassifiedDetectionDto {
   @Type(() => PredictionInputDto)
   predictions: PredictionInputDto[];
 
-  @ApiPropertyOptional({ enum: UserContext })
+  @ApiPropertyOptional({
+    enum: ACTIVE_CONTEXTS,
+    description:
+      'Contexto activo en el reloj cuando se confirmó la detección. Si se omite, el del dispositivo',
+  })
   @IsOptional()
-  @IsEnum(UserContext)
+  @IsIn(ACTIVE_CONTEXTS)
   context?: UserContext;
 
   @ApiPropertyOptional({ example: 'yamnet-tflite' })
@@ -276,4 +283,13 @@ export class ListDetectionsQueryDto {
   @Type(() => Date)
   @IsDate()
   since?: Date;
+
+  @ApiPropertyOptional({
+    enum: UserContext,
+    description:
+      'Solo las ocurridas en este contexto (incluye contextos históricos)',
+  })
+  @IsOptional()
+  @IsEnum(UserContext)
+  context?: UserContext;
 }
