@@ -4,6 +4,7 @@ import {
   getDefaultRules,
   getSoundDefinition,
   PriorityLevel,
+  RECORD_ONLY_CATEGORIES,
   SoundCategory,
   UserContext,
 } from '../../domain/index.js';
@@ -73,7 +74,10 @@ export class RulesService {
   ): Promise<ContextRulesDto> {
     await this.devices.getOrThrow(deviceId);
     const invalid = items.filter(
-      (i) => i.category === SoundCategory.UNKNOWN || isLocked(i.category),
+      (i) =>
+        i.category === SoundCategory.UNKNOWN ||
+        isLocked(i.category) ||
+        RECORD_ONLY_CATEGORIES.includes(i.category),
     );
     if (invalid.length) {
       throw new BadRequestException(
