@@ -14,7 +14,7 @@ DISPOSITIVO → POST detección → CLASIFICACIÓN (SoundClassifier: hoy mock)
 | `ATTENTION` | bocina, vehículo acercándose, bebé llorando | 2 |
 | `INFORMATION` | timbre, golpe en la puerta, teléfono | 1 |
 
-Contextos: `HOME` (casa), `STREET` (calle), `UNIVERSITY`, `WORK`. Cada contexto activa solo los sonidos relevantes (la bocina solo alerta en la calle). Los sonidos de peligro están activos siempre y no se pueden desactivar.
+Contextos activos: `HOME` (casa), `STREET` (calle) y `OTHER` (otro, por defecto). Son los mismos que en el reloj (`CASA`, `CALLE`, `OTRO`). El contexto no se deduce del sonido: es el estado del dispositivo. `UNIVERSITY` y `WORK` se conservan como históricos (datos y reglas), pero la API no permite fijarlos como contexto activo. Cada contexto activa solo los sonidos relevantes (la bocina solo alerta en la calle o en otro). Los sonidos de peligro están activos siempre.
 
 ## 1. Configurar `.env`
 
@@ -31,7 +31,7 @@ La service role key **solo** se usa en este backend. Nunca va en el reloj ni en 
 
 ## 2. Ejecutar la migración
 
-Supabase Dashboard → **SQL Editor** → *New query* → pega el contenido de `supabase/migrations/20260930000000_init.sql` → **Run**.
+Supabase Dashboard → **SQL Editor** → *New query* → pega y ejecuta, en orden, `supabase/migrations/20260930000000_init.sql` y `supabase/migrations/20261005000000_other_context.sql` (añade el contexto `OTHER`).
 
 (Alternativa con CLI: `supabase link --project-ref <ref>` y después `supabase db push`.)
 
@@ -42,7 +42,7 @@ Si ya habías ejecutado una versión anterior de la migración, ejecuta primero 
 | Tabla | Contenido |
 |-------|-----------|
 | `users` | propietario de los relojes (preparada para Supabase Auth) |
-| `contexts` | catálogo HOME / STREET / UNIVERSITY / WORK |
+| `contexts` | catálogo HOME / STREET / OTHER (activos) + UNIVERSITY / WORK (históricos) |
 | `devices` | relojes, propietario (`owner_id`) y contexto actual |
 | `device_settings` | configuración 1:1 (`min_confidence`, `alerts_enabled`). La crea un trigger al insertar el dispositivo |
 | `sound_rules` | personalizaciones por dispositivo + contexto + sonido. Si no hay fila, se aplica la regla por defecto del backend |
@@ -77,8 +77,8 @@ Sin `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` el backend **no arranca** (no h
 | GET · PUT · DELETE | `/devices/:deviceId/contexts/:context/rules` | Ver / personalizar / restablecer reglas |
 | POST | `/devices/:deviceId/detections/audio` | **Flujo principal**: el servidor clasifica, prioriza y alerta |
 | POST | `/devices/:deviceId/detections/classified` | El reloj ya clasificó localmente; el servidor prioriza y alerta |
-| GET | `/devices/:deviceId/detections` · `/detections/:detectionId` | Historial / detalle con su alerta |
-| GET | `/devices/:deviceId/alerts` | Historial de alertas (`limit`, `priority`, `status`, `since`) |
+| GET | `/devices/:deviceId/detections` · `/detections/:detectionId` | Historial (`limit`, `alertedOnly`, `since`, `context`) / detalle con su alerta |
+| GET | `/devices/:deviceId/alerts` | Historial de alertas (`limit`, `priority`, `status`, `since`, `context`) |
 | POST | `/devices/:deviceId/alerts/:alertId/ack` | Marcar alerta como vista |
 
 Si no hay alerta, `outcome` explica por qué: `NO_PREDICTIONS`, `UNKNOWN_SOUND`, `LOW_CONFIDENCE`, `DISABLED_IN_CONTEXT`, `COOLDOWN` (mismo sonido hace menos de `ALERT_COOLDOWN_SECONDS`) o `ALERTS_DISABLED`.

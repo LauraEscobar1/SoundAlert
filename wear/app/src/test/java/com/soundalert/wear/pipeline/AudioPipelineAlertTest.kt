@@ -1,6 +1,6 @@
 package com.soundalert.wear.pipeline
 
-import com.soundalert.wear.alert.AlertManager
+import com.soundalert.wear.alert.AlertHarness
 import com.soundalert.wear.alert.FakeAlertVibrator
 import com.soundalert.wear.audio.AudioSource
 import com.soundalert.wear.classifier.ClassifierInfo
@@ -77,7 +77,7 @@ class AudioPipelineAlertTest {
     fun `el contexto cambia en mitad de la escucha y el pipeline sigue clasificando`() = runTest {
         val contextManager = ContextManager(SoundAlertContext.CASA)
         val vibrator = FakeAlertVibrator()
-        val alerts = AlertManager(contextManager, RuleEngine(), vibrator, AlertConfig(), backgroundScope) { testScheduler.currentTime }
+        val alerts = AlertHarness(contextManager, RuleEngine(), vibrator, AlertConfig(), backgroundScope) { testScheduler.currentTime }
         val classifier = AmplitudeClassifier()
 
         val q = List(4) { Block.QUIET }

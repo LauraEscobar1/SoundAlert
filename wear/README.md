@@ -21,7 +21,8 @@ Fuera de estas fases: Room, WorkManager, sincronización, backend, contexto auto
 
 ## Contexto, reglas, alertas y vibración
 
-- **Contexto** (`context/`): `CALLE`, `CASA`, `TRABAJO`, `TRANSPORTE`, `OTRO` (inicial). Lo elige el usuario en la pantalla de diagnóstico; el cambio se aplica al siguiente sonido sin reiniciar el micrófono ni YAMNet.
+- **Contexto activo** (`context/`): `CASA`, `CALLE`, `OTRO` (`SoundAlertContext.ACTIVE`; `OTRO` por defecto). Es independiente del sonido: YAMNet dice qué suena; el contexto dice dónde está la persona. La fuente es la interfaz `ActiveContextProvider`; hoy la implementa `ContextManager` (contexto explícito) y en el futuro podrá implementarla un proveedor por ubicación/movimiento sin tocar el resto. `TRABAJO` y `TRANSPORTE` se conservan con sus reglas, pero no pueden ser el contexto activo. Cada contexto lleva su código de la API (`CASA→HOME`, `CALLE→STREET`, `OTRO→OTHER`). El contexto elegido se guarda (`SharedPreferences`, `ContextStore`) y se restaura al arrancar el proceso (`SoundAlertApp`), así que sobrevive a que Android mate la app, a una reinstalación o a un reinicio; `OTRO` solo se usa si nunca se eligió nada.
+- **Clasificación contextual** (`ContextualClassifier`): lee el contexto activo **una sola vez** por detección confirmada y lo congela en una `ContextualDetection` (categoría + contexto + regla). Se guarda en `DetectionHistory` (todas las detecciones, alerten o no, agrupables por contexto) y llega al `AlertManager`; la `Alert` conserva ese contexto y su `detectionId`.
 - **Reglas** (`rules/RuleEngine.kt`): configuración fija `contexto + categoría → prioridad`. Las detecciones solo las leen. Un sonido sin regla en el contexto actual (p. ej. bocina en `CASA`) no alerta. `UNKNOWN` nunca tiene regla. Sirena, alarma de incendio y detector de humo son `DANGER` en todos los contextos.
 - **Alertas** (`alert/AlertManager.kt`):
 
@@ -130,7 +131,7 @@ Las clases genéricas se descartan en la ventana si aparece su versión específ
 | `BICYCLE_BELL` | Bicycle bell | ATTENTION | 0,35 | Sin datos |
 | `GLASS_BREAK` | Shatter | ATTENTION | 0,50 · 0,70 | Grabaciones 3/5 |
 | `SCREAM` | Screaming | ATTENTION | 0,50 | Sin datos |
-| `BABY_CRYING` | Baby cry, infant cry | ATTENTION | 0,35 | Grabaciones 2/5 |
+| `BABY_CRYING` | Baby cry, infant cry | INFORMATION (Casa, Otro) | 0,35 | Grabaciones 2/5 |
 | `DOG_BARK` | Bark | INFORMATION | 0,35 | Grabaciones 5/5 |
 | `BELL` | Bell, Church bell, Jingle bell, Chime | Solo registro | 0,50 | Grabaciones: campanas de iglesia 5/5 |
 | `WARNING_SIGNAL` | Beep, bleep, Buzzer | Solo registro | 0,50 | Modelo real: un tono de 1 kHz da Beep 0,74 |

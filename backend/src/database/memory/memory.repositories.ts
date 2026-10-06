@@ -156,6 +156,7 @@ export class MemoryDetectionsRepository extends DetectionsRepository {
       .filter((d) => d.deviceId === q.deviceId)
       .filter((d) => !q.alertedOnly || d.alerted)
       .filter((d) => !q.since || d.createdAt >= q.since)
+      .filter((d) => !q.context || d.context === q.context)
       .reverse()
       .slice(0, q.limit)
       .map((d) => ({ ...d }));
@@ -195,6 +196,7 @@ export class MemoryAlertsRepository extends AlertsRepository {
       .filter((a) => !q.priority || a.priority === q.priority)
       .filter((a) => !q.status || a.status === q.status)
       .filter((a) => !q.since || a.createdAt >= q.since)
+      .filter((a) => !q.context || a.context === q.context)
       .slice(0, q.limit)
       .map((a) => ({ ...a }));
   }

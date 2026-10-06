@@ -26,6 +26,7 @@ const CONTEXT_INFO: Record<UserContext, Omit<ContextDto, 'context'>> = {
   [UserContext.STREET]: { name: 'Calle', icon: 'street' },
   [UserContext.UNIVERSITY]: { name: 'Universidad', icon: 'school' },
   [UserContext.WORK]: { name: 'Trabajo', icon: 'work' },
+  [UserContext.OTHER]: { name: 'Otro', icon: 'other' },
 };
 
 export function toContextDto(context: UserContext): ContextDto {

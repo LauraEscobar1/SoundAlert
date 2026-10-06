@@ -71,8 +71,9 @@ class RuleEngine(rules: Map<SoundAlertContext, Map<SoundCategory, Priority>> = D
         )
 
         /**
-         * Reglas iniciales. CALLE, CASA y TRABAJO parten de las reglas del backend
-         * (STREET, HOME, WORK); TRANSPORTE y OTRO son nuevos en el reloj.
+         * Matriz. Activas: CASA, CALLE y OTRO (iguales que HOME, STREET y OTHER en el
+         * backend). TRABAJO y TRANSPORTE se conservan pero no pueden ser el contexto
+         * activo (ContextManager los rechaza).
          *
          * Decisiones pendientes (documentadas, sin regla especial todavía):
          *  - GLASS_BREAK: ATTENTION en todos los contextos. "Shatter" no distingue un vaso
@@ -100,7 +101,7 @@ class RuleEngine(rules: Map<SoundAlertContext, Map<SoundCategory, Priority>> = D
             SoundAlertContext.CASA to ALWAYS + mapOf(
                 GLASS_BREAK to ATTENTION,
                 SCREAM to ATTENTION,
-                BABY_CRYING to ATTENTION,
+                BABY_CRYING to INFORMATION,
                 DOORBELL to INFORMATION,
                 DOOR_KNOCK to INFORMATION,
                 PHONE_RING to INFORMATION,
@@ -136,7 +137,7 @@ class RuleEngine(rules: Map<SoundAlertContext, Map<SoundCategory, Priority>> = D
                 BICYCLE_BELL to ATTENTION,
                 GLASS_BREAK to ATTENTION,
                 SCREAM to ATTENTION,
-                BABY_CRYING to ATTENTION,
+                BABY_CRYING to INFORMATION,
                 DOORBELL to INFORMATION,
                 DOOR_KNOCK to INFORMATION,
                 PHONE_RING to INFORMATION,

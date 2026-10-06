@@ -37,7 +37,7 @@ class CatalogFlowTest {
 
     private fun TestScope.play(context: SoundAlertContext, windows: Int, vararg scores: Pair<String, Float>): Run {
         val vibrator = FakeAlertVibrator()
-        val alerts = AlertManager(ContextManager(context), RuleEngine(), vibrator, AlertConfig(), backgroundScope) { testScheduler.currentTime }
+        val alerts = AlertHarness(ContextManager(context), RuleEngine(), vibrator, AlertConfig(), backgroundScope) { testScheduler.currentTime }
         val stabilizer = DetectionStabilizer(StabilizerConfig(), hop)
         val events = mutableListOf<DetectionEvent>()
         val vector = FloatArray(labels.size).also { v -> scores.forEach { (label, s) -> v[labels.indexOf(label).also { check(it >= 0) { label } }] = s } }
@@ -53,23 +53,23 @@ class CatalogFlowTest {
     private val positives = listOf(
         Triple("Police car (siren)", SoundAlertContext.CALLE, SoundCategory.SIREN to Priority.DANGER),
         Triple("Ambulance (siren)", SoundAlertContext.CASA, SoundCategory.SIREN to Priority.DANGER),
-        Triple("Fire engine, fire truck (siren)", SoundAlertContext.TRABAJO, SoundCategory.SIREN to Priority.DANGER),
+        Triple("Fire engine, fire truck (siren)", SoundAlertContext.OTRO, SoundCategory.SIREN to Priority.DANGER),
         Triple("Fire alarm", SoundAlertContext.CASA, SoundCategory.FIRE_ALARM to Priority.DANGER),
-        Triple("Smoke detector, smoke alarm", SoundAlertContext.TRABAJO, SoundCategory.SMOKE_ALARM to Priority.DANGER),
+        Triple("Smoke detector, smoke alarm", SoundAlertContext.CALLE, SoundCategory.SMOKE_ALARM to Priority.DANGER),
         Triple("Alarm", SoundAlertContext.CASA, SoundCategory.GENERAL_ALARM to Priority.ATTENTION),
         Triple("Vehicle horn, car horn, honking", SoundAlertContext.CALLE, SoundCategory.CAR_HORN to Priority.ATTENTION),
-        Triple("Air horn, truck horn", SoundAlertContext.TRANSPORTE, SoundCategory.CAR_HORN to Priority.ATTENTION),
+        Triple("Air horn, truck horn", SoundAlertContext.OTRO, SoundCategory.CAR_HORN to Priority.ATTENTION),
         Triple("Car alarm", SoundAlertContext.CALLE, SoundCategory.CAR_ALARM to Priority.ATTENTION),
         Triple("Tire squeal", SoundAlertContext.CALLE, SoundCategory.TIRE_SKID to Priority.ATTENTION),
-        Triple("Reversing beeps", SoundAlertContext.TRABAJO, SoundCategory.REVERSING_VEHICLE to Priority.ATTENTION),
-        Triple("Train horn", SoundAlertContext.TRANSPORTE, SoundCategory.TRAIN_HORN to Priority.ATTENTION),
+        Triple("Reversing beeps", SoundAlertContext.CALLE, SoundCategory.REVERSING_VEHICLE to Priority.ATTENTION),
+        Triple("Train horn", SoundAlertContext.OTRO, SoundCategory.TRAIN_HORN to Priority.ATTENTION),
         Triple("Bicycle bell", SoundAlertContext.CALLE, SoundCategory.BICYCLE_BELL to Priority.ATTENTION),
         Triple("Shatter", SoundAlertContext.CASA, SoundCategory.GLASS_BREAK to Priority.ATTENTION),
         Triple("Screaming", SoundAlertContext.CALLE, SoundCategory.SCREAM to Priority.ATTENTION),
-        Triple("Baby cry, infant cry", SoundAlertContext.CASA, SoundCategory.BABY_CRYING to Priority.ATTENTION),
+        Triple("Baby cry, infant cry", SoundAlertContext.CASA, SoundCategory.BABY_CRYING to Priority.INFORMATION),
         Triple("Doorbell", SoundAlertContext.CASA, SoundCategory.DOORBELL to Priority.INFORMATION),
         Triple("Knock", SoundAlertContext.CASA, SoundCategory.DOOR_KNOCK to Priority.INFORMATION),
-        Triple("Ringtone", SoundAlertContext.TRABAJO, SoundCategory.PHONE_RING to Priority.INFORMATION),
+        Triple("Ringtone", SoundAlertContext.CASA, SoundCategory.PHONE_RING to Priority.INFORMATION),
         Triple("Alarm clock", SoundAlertContext.CASA, SoundCategory.ALARM_CLOCK to Priority.INFORMATION),
         Triple("Bark", SoundAlertContext.CALLE, SoundCategory.DOG_BARK to Priority.INFORMATION),
         Triple("Water tap, faucet", SoundAlertContext.CASA, SoundCategory.WATER_RUNNING to Priority.INFORMATION),
@@ -99,7 +99,7 @@ class CatalogFlowTest {
             "Computer keyboard", "Walk, footsteps", "Laughter", "Cough", "Television", "Silence",
             "Environmental noise", "Sine wave", "Traffic noise, roadway noise",
         )
-        for (context in SoundAlertContext.entries) {
+        for (context in SoundAlertContext.ACTIVE) {
             for (label in irrelevant) {
                 val run = play(context, 10, label to 0.95f)
                 assertTrue("$label en $context generó ${run.events}", run.events.isEmpty())
@@ -130,7 +130,7 @@ class CatalogFlowTest {
             "Beep, bleep" to SoundCategory.WARNING_SIGNAL,
             "Buzzer" to SoundCategory.WARNING_SIGNAL,
         )
-        for (context in SoundAlertContext.entries) {
+        for (context in SoundAlertContext.ACTIVE) {
             for ((label, category) in recordOnly) {
                 val run = play(context, 3, label to 0.9f)
                 assertEquals("$label en $context", listOf(category), run.events.filterIsInstance<DetectionEvent.Started>().map { it.category })

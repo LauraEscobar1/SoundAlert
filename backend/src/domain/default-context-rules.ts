@@ -25,28 +25,66 @@ const ALWAYS: RuleSeed[] = [
   [S.SMOKE_ALARM, D],
 ];
 
+/**
+ * Matriz activa (HOME = CASA, STREET = CALLE, OTHER = OTRO), igual que en el reloj
+ * (wear/…/RuleEngine.kt). Las categorías que el reloj no produce (NAME_CALLED,
+ * VEHICLE_APPROACHING, MICROWAVE_BEEP, KETTLE_WHISTLE) conservan sus reglas
+ * anteriores en HOME y STREET. UNIVERSITY y WORK (históricos) no cambian.
+ */
 const SEEDS: Record<UserContext, RuleSeed[]> = {
   [UserContext.HOME]: [
     ...ALWAYS,
-    [S.BABY_CRYING, A],
-    [S.NAME_CALLED, A],
+    [S.GENERAL_ALARM, A],
+    [S.GLASS_BREAK, A],
+    [S.SCREAM, A],
+    [S.BABY_CRYING, I],
+    [S.DOG_BARK, I],
     [S.DOORBELL, I],
     [S.DOOR_KNOCK, I],
     [S.PHONE_RING, I],
-    [S.DOG_BARK, I],
     [S.ALARM_CLOCK, I],
+    [S.WATER_RUNNING, I],
+    // Históricas (el reloj no las produce).
+    [S.NAME_CALLED, A],
     [S.MICROWAVE_BEEP, I],
     [S.KETTLE_WHISTLE, I],
-    [S.WATER_RUNNING, I],
   ],
   [UserContext.STREET]: [
     ...ALWAYS,
+    [S.GENERAL_ALARM, A],
+    [S.GLASS_BREAK, A],
+    [S.SCREAM, A],
     [S.CAR_HORN, A],
-    [S.VEHICLE_APPROACHING, A],
+    [S.TIRE_SKID, A],
+    [S.TRAIN_HORN, A],
+    [S.REVERSING_VEHICLE, A],
+    [S.CAR_ALARM, A],
     [S.BICYCLE_BELL, A],
-    [S.NAME_CALLED, A],
     [S.DOG_BARK, I],
+    // Históricas (el reloj no las produce).
+    [S.VEHICLE_APPROACHING, A],
+    [S.NAME_CALLED, A],
   ],
+  [UserContext.OTHER]: [
+    ...ALWAYS,
+    [S.GENERAL_ALARM, A],
+    [S.GLASS_BREAK, A],
+    [S.SCREAM, A],
+    [S.CAR_HORN, A],
+    [S.TIRE_SKID, A],
+    [S.TRAIN_HORN, A],
+    [S.REVERSING_VEHICLE, A],
+    [S.CAR_ALARM, A],
+    [S.BICYCLE_BELL, A],
+    [S.BABY_CRYING, I],
+    [S.DOG_BARK, I],
+    [S.DOORBELL, I],
+    [S.DOOR_KNOCK, I],
+    [S.PHONE_RING, I],
+    [S.ALARM_CLOCK, I],
+    [S.WATER_RUNNING, I],
+  ],
+  // Históricos: sin cambios.
   [UserContext.UNIVERSITY]: [
     ...ALWAYS,
     [S.NAME_CALLED, A],

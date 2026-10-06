@@ -111,7 +111,7 @@ class RuleEngineTest {
                 SoundCategory.SCREAM to A, SoundCategory.DOG_BARK to I,
             ),
             CASA to always + row(
-                SoundCategory.GLASS_BREAK to A, SoundCategory.SCREAM to A, SoundCategory.BABY_CRYING to A,
+                SoundCategory.GLASS_BREAK to A, SoundCategory.SCREAM to A, SoundCategory.BABY_CRYING to I,
                 DOORBELL to I, DOOR_KNOCK to I, SoundCategory.PHONE_RING to I, SoundCategory.ALARM_CLOCK to I,
                 SoundCategory.DOG_BARK to I, SoundCategory.WATER_RUNNING to I,
             ),
@@ -126,7 +126,7 @@ class RuleEngineTest {
             SoundAlertContext.OTRO to always + row(
                 CAR_HORN to A, SoundCategory.CAR_ALARM to A, SoundCategory.TIRE_SKID to A, SoundCategory.REVERSING_VEHICLE to A,
                 SoundCategory.TRAIN_HORN to A, BICYCLE_BELL to A, SoundCategory.GLASS_BREAK to A, SoundCategory.SCREAM to A,
-                SoundCategory.BABY_CRYING to A, DOORBELL to I, DOOR_KNOCK to I, SoundCategory.PHONE_RING to I,
+                SoundCategory.BABY_CRYING to I, DOORBELL to I, DOOR_KNOCK to I, SoundCategory.PHONE_RING to I,
                 SoundCategory.ALARM_CLOCK to I, SoundCategory.DOG_BARK to I, SoundCategory.WATER_RUNNING to I,
             ),
         )
@@ -184,7 +184,7 @@ class RuleEngineTest {
         for (category in listOf(DOORBELL, DOOR_KNOCK, SoundCategory.PHONE_RING, SoundCategory.ALARM_CLOCK, SoundCategory.WATER_RUNNING)) {
             assertEquals(category.name, Priority.INFORMATION, priority(category, CASA))
         }
-        assertEquals(Priority.ATTENTION, priority(SoundCategory.BABY_CRYING, CASA))
+        assertEquals(Priority.INFORMATION, priority(SoundCategory.BABY_CRYING, CASA))
     }
 
     @Test

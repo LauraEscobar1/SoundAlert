@@ -393,3 +393,127 @@ describe('Supabase: flujo completo por HTTP', () => {
     expect([d.count, a.count, s.count]).toEqual([0, 0, 0]);
   });
 });
+
+describe('Supabase: contexto activo CASA/CALLE/OTRO (HOME/STREET/OTHER) persistido', () => {
+  let app: INestApplication<App>;
+
+  beforeAll(async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+    app = moduleRef.createNestApplication({ bodyParser: false });
+    setupApp(app);
+    await app.init();
+  });
+  afterAll(() => app?.close());
+
+  const api = () => request(app.getHttpServer());
+  const newDevice = async () => {
+    const res = await api()
+      .post('/api/v1/devices')
+      .send({ name: 'Reloj contexto (test)' })
+      .expect(201);
+    track('device', res.body.id);
+    return res.body as { id: string; currentContext: string };
+  };
+  const watch = (id: string, context: string, label: string) =>
+    api()
+      .post(`/api/v1/devices/${id}/detections/classified`)
+      .send({
+        context,
+        predictions: [{ label, confidence: 0.9 }],
+        classifierName: 'yamnet-litert',
+      })
+      .expect(200);
+
+  it('el catálogo de contextos de la base de datos incluye OTHER', async () => {
+    const { data } = await db
+      .from('contexts')
+      .select('code')
+      .eq('code', 'OTHER')
+      .single();
+    expect(data).toEqual({ code: 'OTHER' });
+  });
+
+  it('un dispositivo sin contexto explícito queda en OTHER', async () => {
+    const device = await newDevice();
+    expect(device.currentContext).toBe('OTHER');
+    const { data } = await db
+      .from('devices')
+      .select('current_context')
+      .eq('id', device.id)
+      .single();
+    expect(data).toEqual({ current_context: 'OTHER' });
+  });
+
+  const cases: Array<[string, string, string, string | null, number]> = [
+    ['Caso 1', 'HOME', 'Siren', 'DANGER', 3],
+    ['Caso 2', 'STREET', 'Siren', 'DANGER', 3],
+    ['Caso 3', 'OTHER', 'Siren', 'DANGER', 3],
+    ['Caso 4', 'STREET', 'Vehicle horn, car horn, honking', 'ATTENTION', 2],
+    ['Caso 5', 'HOME', 'Vehicle horn, car horn, honking', null, 0],
+    ['Caso 6', 'OTHER', 'Vehicle horn, car horn, honking', 'ATTENTION', 2],
+    ['Caso 7', 'HOME', 'Doorbell', 'INFORMATION', 1],
+    ['Caso 8', 'STREET', 'Doorbell', null, 0],
+    ['Caso 9', 'OTHER', 'Doorbell', 'INFORMATION', 1],
+  ];
+  it.each(cases)(
+    '%s: %s + %s → %s, contexto guardado en Supabase',
+    async (_, context, label, priority, vibrations) => {
+      const device = await newDevice();
+      const { body } = await watch(device.id, context, label);
+
+      const det = await db
+        .from('detections')
+        .select('context, alerted, outcome')
+        .eq('id', body.detectionId)
+        .single();
+      expect(det.data).toMatchObject({ context, alerted: priority !== null });
+      const alert = await db
+        .from('alerts')
+        .select('context, priority, vibration_count')
+        .eq('detection_id', body.detectionId)
+        .maybeSingle();
+      if (priority) {
+        expect(alert.data).toEqual({
+          context,
+          priority,
+          vibration_count: vibrations,
+        });
+      } else {
+        expect(det.data!.outcome).toBe('DISABLED_IN_CONTEXT');
+        expect(alert.data).toBeNull();
+      }
+    },
+  );
+
+  it('HOME → STREET → OTHER: cada detección conserva su contexto y el historial filtra por contexto', async () => {
+    const device = await newDevice();
+    for (const ctx of ['HOME', 'STREET', 'OTHER']) {
+      await api()
+        .put(`/api/v1/devices/${device.id}/context`)
+        .send({ currentContext: ctx })
+        .expect(200);
+      await api()
+        .post(`/api/v1/devices/${device.id}/detections/classified`)
+        .send({ predictions: [{ label: 'Bark', confidence: 0.9 }] })
+        .expect(200);
+    }
+    const { data } = await db
+      .from('detections')
+      .select('context')
+      .eq('device_id', device.id)
+      .order('created_at');
+    expect(data!.map((d) => d.context)).toEqual(['HOME', 'STREET', 'OTHER']);
+    for (const ctx of ['HOME', 'STREET', 'OTHER']) {
+      const res = await api()
+        .get(`/api/v1/devices/${device.id}/detections?context=${ctx}`)
+        .expect(200);
+      expect(res.body.map((d: any) => d.context)).toEqual([ctx]);
+    }
+    const alerts = await api()
+      .get(`/api/v1/devices/${device.id}/alerts?context=HOME`)
+      .expect(200);
+    expect(alerts.body.map((a: any) => a.context)).toEqual(['HOME']);
+  });
+});

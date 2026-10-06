@@ -10,12 +10,35 @@ export enum PriorityLevel {
   INFORMATION = 'INFORMATION',
 }
 
-/** Contexto (lugar) en el que se encuentra el usuario. */
+/**
+ * Contexto (lugar/entorno) en el que se encuentra el usuario. NO se deduce del
+ * sonido: es un estado independiente del dispositivo.
+ *
+ * Activos: HOME, STREET y OTHER ([ACTIVE_CONTEXTS]). UNIVERSITY y WORK son
+ * históricos: se conservan para leer datos ya guardados y sus reglas, pero no se
+ * pueden fijar como contexto activo ni aparecen en el catálogo.
+ */
 export enum UserContext {
   HOME = 'HOME',
   STREET = 'STREET',
   UNIVERSITY = 'UNIVERSITY',
   WORK = 'WORK',
+  /** Entorno no definido: contexto por defecto (vigila todo con su prioridad por defecto). */
+  OTHER = 'OTHER',
+}
+
+/** Única lista de contextos activos (en el reloj: CASA, CALLE, OTRO). */
+export const ACTIVE_CONTEXTS: readonly UserContext[] = [
+  UserContext.HOME,
+  UserContext.STREET,
+  UserContext.OTHER,
+];
+
+/** Contexto cuando no hay uno explícito. */
+export const DEFAULT_CONTEXT = UserContext.OTHER;
+
+export function isActiveContext(value: unknown): value is UserContext {
+  return ACTIVE_CONTEXTS.includes(value as UserContext);
 }
 
 /**
@@ -40,8 +63,26 @@ export enum SoundCategory {
   KETTLE_WHISTLE = 'KETTLE_WHISTLE',
   WATER_RUNNING = 'WATER_RUNNING',
   SCHOOL_BELL = 'SCHOOL_BELL',
+  // Categorías del reloj (YAMNet). Ver wear/…/SoundCategory.kt.
+  GENERAL_ALARM = 'GENERAL_ALARM',
+  CAR_ALARM = 'CAR_ALARM',
+  TIRE_SKID = 'TIRE_SKID',
+  REVERSING_VEHICLE = 'REVERSING_VEHICLE',
+  TRAIN_HORN = 'TRAIN_HORN',
+  GLASS_BREAK = 'GLASS_BREAK',
+  SCREAM = 'SCREAM',
+  /** Solo registro: nunca alerta. */
+  BELL = 'BELL',
+  /** Solo registro: nunca alerta. */
+  WARNING_SIGNAL = 'WARNING_SIGNAL',
   UNKNOWN = 'UNKNOWN',
 }
+
+/** Categorías de solo registro: se guardan como detección pero no admiten reglas ni alertas. */
+export const RECORD_ONLY_CATEGORIES: readonly SoundCategory[] = [
+  SoundCategory.BELL,
+  SoundCategory.WARNING_SIGNAL,
+];
 
 /** Resultado de procesar una detección. */
 export enum DetectionOutcome {

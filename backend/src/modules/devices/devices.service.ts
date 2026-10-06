@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AppConfig } from '../../config/configuration.js';
-import { UserContext } from '../../domain/index.js';
+import { DEFAULT_CONTEXT, UserContext } from '../../domain/index.js';
 import { Device, DevicePlatform } from '../../database/entities.js';
 import {
   DevicesRepository,
@@ -32,7 +32,7 @@ export class DevicesService {
       ownerId: dto.ownerId ?? null,
       name: dto.name,
       platform: dto.platform ?? DevicePlatform.WEAR_OS,
-      currentContext: dto.currentContext ?? UserContext.HOME,
+      currentContext: dto.currentContext ?? DEFAULT_CONTEXT,
       minConfidence: dto.minConfidence ?? null,
       alertsEnabled: dto.alertsEnabled ?? true,
     });

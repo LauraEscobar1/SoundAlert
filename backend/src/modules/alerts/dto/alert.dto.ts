@@ -87,4 +87,13 @@ export class ListAlertsQueryDto {
   @IsOptional()
   @IsEnum(AlertStatus)
   status?: AlertStatus;
+
+  @ApiPropertyOptional({
+    enum: UserContext,
+    description:
+      'Solo las ocurridas en este contexto (incluye contextos históricos)',
+  })
+  @IsOptional()
+  @IsEnum(UserContext)
+  context?: UserContext;
 }
