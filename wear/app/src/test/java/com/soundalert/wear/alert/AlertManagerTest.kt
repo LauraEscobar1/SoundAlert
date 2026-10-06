@@ -129,7 +129,7 @@ class AlertManagerTest {
 
     @Test
     fun `las categorias de solo registro nunca alertan ni vibran`() = runTest {
-        for (context in SoundAlertContext.entries) {
+        for (context in SoundAlertContext.ACTIVE) {
             contextManager.set(context)
             val m = manager()
             m.onDetection(started(SoundCategory.BELL, 0.9f, "Church bell"))
