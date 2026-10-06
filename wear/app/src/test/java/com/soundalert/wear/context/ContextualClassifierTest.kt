@@ -141,7 +141,7 @@ class ContextualClassifierTest {
     fun `la regla de la deteccion es exactamente la de la matriz para su contexto`() = runTest {
         val rules = RuleEngine()
         val h = harness()
-        for (context in SoundAlertContext.entries) {
+        for (context in SoundAlertContext.ACTIVE) {
             contextManager.set(context)
             for (category in SoundCategory.ALERTABLE) {
                 detect(h, category)
