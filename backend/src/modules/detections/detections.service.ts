@@ -134,6 +134,7 @@ export class DetectionsService {
       limit: q.limit ?? 50,
       alertedOnly: q.alertedOnly,
       since: q.since,
+      context: q.context,
     });
     return items.map(toDetectionDto);
   }
