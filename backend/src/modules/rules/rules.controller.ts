@@ -4,7 +4,6 @@ import {
   Delete,
   Get,
   Param,
-  ParseEnumPipe,
   ParseUUIDPipe,
   Put,
 } from '@nestjs/common';
@@ -16,7 +15,8 @@ import {
   ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
-import { UserContext } from '../../domain/index.js';
+import { ACTIVE_CONTEXTS, UserContext } from '../../domain/index.js';
+import { ParseActiveContextPipe } from '../../common/active-context.pipe.js';
 import { ContextRulesDto, UpdateRulesDto } from './dto/rule.dto.js';
 import { RulesService } from './rules.service.js';
 
@@ -26,7 +26,7 @@ import { RulesService } from './rules.service.js';
   description:
     'UUID, contexto o reglas inválidos (o se intentó modificar un sonido de peligro)',
 })
-@ApiParam({ name: 'context', enum: UserContext })
+@ApiParam({ name: 'context', enum: ACTIVE_CONTEXTS })
 @Controller('devices/:deviceId/contexts/:context/rules')
 export class RulesController {
   constructor(private readonly service: RulesService) {}
@@ -39,7 +39,7 @@ export class RulesController {
   @ApiOkResponse({ type: ContextRulesDto })
   get(
     @Param('deviceId', ParseUUIDPipe) deviceId: string,
-    @Param('context', new ParseEnumPipe(UserContext)) context: UserContext,
+    @Param('context', new ParseActiveContextPipe()) context: UserContext,
   ): Promise<ContextRulesDto> {
     return this.service.getRules(deviceId, context);
   }
@@ -52,7 +52,7 @@ export class RulesController {
   })
   update(
     @Param('deviceId', ParseUUIDPipe) deviceId: string,
-    @Param('context', new ParseEnumPipe(UserContext)) context: UserContext,
+    @Param('context', new ParseActiveContextPipe()) context: UserContext,
     @Body() dto: UpdateRulesDto,
   ): Promise<ContextRulesDto> {
     return this.service.updateRules(deviceId, context, dto.rules);
@@ -63,7 +63,7 @@ export class RulesController {
   @ApiOkResponse({ type: ContextRulesDto })
   reset(
     @Param('deviceId', ParseUUIDPipe) deviceId: string,
-    @Param('context', new ParseEnumPipe(UserContext)) context: UserContext,
+    @Param('context', new ParseActiveContextPipe()) context: UserContext,
   ): Promise<ContextRulesDto> {
     return this.service.resetRules(deviceId, context);
   }
