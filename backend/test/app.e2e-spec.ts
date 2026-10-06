@@ -70,7 +70,7 @@ describe('SoundAlert API (e2e, memoria)', () => {
     expect(res.body).toMatchObject({
       ownerId: user.body.id,
       platform: 'WEAR_OS',
-      currentContext: 'HOME',
+      currentContext: 'OTHER', // sin contexto explícito → OTHER (fallback seguro)
       alertsEnabled: true,
       effectiveMinConfidence: 0.6,
     });
@@ -243,7 +243,8 @@ describe('SoundAlert API (e2e, memoria)', () => {
     expect(res.body).toMatchObject({
       source: 'DEVICE',
       classifier: { name: 'on-watch' },
-      alert: { priority: { level: 'ATTENTION' } },
+      // Matriz activa: BABY_CRYING en HOME (CASA) es INFORMATION.
+      alert: { priority: { level: 'INFORMATION' } },
     });
   });
 
@@ -326,5 +327,202 @@ describe('SoundAlert API (e2e, memoria)', () => {
   it('eliminar el dispositivo', async () => {
     await api().delete(`/api/v1/devices/${deviceId}`).expect(204);
     await api().get(`/api/v1/devices/${deviceId}`).expect(404);
+  });
+
+  describe('contextos activos HOME/STREET/OTHER (CASA/CALLE/OTRO)', () => {
+    const watch = (id: string, context: string, label: string) =>
+      api()
+        .post(`/api/v1/devices/${id}/detections/classified`)
+        .send({
+          context,
+          predictions: [{ label, confidence: 0.9 }],
+          classifierName: 'yamnet-litert',
+        })
+        .expect(200);
+    const newDevice = async (currentContext?: string) =>
+      (
+        await api()
+          .post('/api/v1/devices')
+          .send({
+            name: 'Reloj contexto',
+            ...(currentContext ? { currentContext } : {}),
+          })
+          .expect(201)
+      ).body.id as string;
+
+    it('el catálogo solo ofrece los contextos activos', async () => {
+      const res = await api().get('/api/v1/catalog/contexts').expect(200);
+      expect(res.body).toEqual([
+        { context: 'HOME', name: 'Casa', icon: 'home' },
+        { context: 'STREET', name: 'Calle', icon: 'street' },
+        { context: 'OTHER', name: 'Otro', icon: 'other' },
+      ]);
+    });
+
+    it('rechaza contextos históricos o desconocidos como contexto activo', async () => {
+      const id = await newDevice();
+      for (const ctx of ['UNIVERSITY', 'WORK', 'CALLE']) {
+        await api()
+          .put(`/api/v1/devices/${id}/context`)
+          .send({ currentContext: ctx })
+          .expect(400);
+        await api()
+          .post('/api/v1/devices')
+          .send({ name: 'x', currentContext: ctx })
+          .expect(400);
+        await api()
+          .get(`/api/v1/devices/${id}/contexts/${ctx}/rules`)
+          .expect(400);
+        await api()
+          .post(`/api/v1/devices/${id}/detections/classified`)
+          .send({
+            context: ctx,
+            predictions: [{ label: 'Siren', confidence: 0.9 }],
+          })
+          .expect(400);
+      }
+    });
+
+    it('consulta y cambia el contexto activo HOME → STREET → OTHER', async () => {
+      const id = await newDevice('HOME');
+      for (const [ctx, name] of [
+        ['HOME', 'Casa'],
+        ['STREET', 'Calle'],
+        ['OTHER', 'Otro'],
+      ]) {
+        await api()
+          .put(`/api/v1/devices/${id}/context`)
+          .send({ currentContext: ctx })
+          .expect(200);
+        const res = await api()
+          .get(`/api/v1/devices/${id}/context`)
+          .expect(200);
+        expect(res.body).toMatchObject({ context: ctx, name });
+      }
+    });
+
+    // label → (contexto, prioridad esperada o null = sin alerta, vibraciones)
+    const cases: Array<[string, string, string, string | null, number]> = [
+      ['Caso 1', 'HOME', 'Siren', 'DANGER', 3],
+      ['Caso 2', 'STREET', 'Siren', 'DANGER', 3],
+      ['Caso 3', 'OTHER', 'Siren', 'DANGER', 3],
+      ['Caso 4', 'STREET', 'Vehicle horn, car horn, honking', 'ATTENTION', 2],
+      ['Caso 5', 'HOME', 'Vehicle horn, car horn, honking', null, 0],
+      ['Caso 6', 'OTHER', 'Vehicle horn, car horn, honking', 'ATTENTION', 2],
+      ['Caso 7', 'HOME', 'Doorbell', 'INFORMATION', 1],
+      ['Caso 8', 'STREET', 'Doorbell', null, 0],
+      ['Caso 9', 'OTHER', 'Doorbell', 'INFORMATION', 1],
+    ];
+    it.each(cases)(
+      '%s: %s + %s → %s',
+      async (_, context, label, priority, vibrations) => {
+        const id = await newDevice();
+        const res = await watch(id, context, label);
+        expect(res.body.context).toBe(context);
+        if (priority) {
+          expect(res.body).toMatchObject({
+            alerted: true,
+            alert: {
+              context,
+              priority: { level: priority },
+              vibration: { count: vibrations },
+            },
+          });
+        } else {
+          expect(res.body).toMatchObject({
+            alerted: false,
+            outcome: 'DISABLED_IN_CONTEXT',
+            alert: null,
+          });
+        }
+        // Persistido: la detección guarda su contexto (y su alerta, si la hay).
+        const detection = await api()
+          .get(`/api/v1/devices/${id}/detections/${res.body.detectionId}`)
+          .expect(200);
+        expect(detection.body).toMatchObject({
+          context,
+          alerted: priority !== null,
+        });
+        if (priority)
+          expect(detection.body.alert).toMatchObject({
+            context,
+            priority: { level: priority },
+          });
+      },
+    );
+
+    it('cambiar HOME → STREET → OTHER no mezcla contextos en el historial y permite filtrar', async () => {
+      const id = await newDevice();
+      for (const ctx of ['HOME', 'STREET', 'OTHER']) {
+        await api()
+          .put(`/api/v1/devices/${id}/context`)
+          .send({ currentContext: ctx })
+          .expect(200);
+        // Sin "context" en el cuerpo: se usa el contexto activo del dispositivo.
+        await api()
+          .post(`/api/v1/devices/${id}/detections/classified`)
+          .send({
+            predictions: [
+              { label: 'Smoke detector, smoke alarm', confidence: 0.9 },
+            ],
+          })
+          .expect(200);
+        await new Promise((r) => setTimeout(r, 5)); // orden de created_at
+      }
+      const all = await api()
+        .get(`/api/v1/devices/${id}/detections`)
+        .expect(200);
+      expect(all.body.map((d: any) => d.context)).toEqual([
+        'OTHER',
+        'STREET',
+        'HOME',
+      ]);
+      for (const ctx of ['HOME', 'STREET', 'OTHER']) {
+        const dets = await api()
+          .get(`/api/v1/devices/${id}/detections?context=${ctx}`)
+          .expect(200);
+        expect(dets.body.map((d: any) => d.context)).toEqual([ctx]);
+      }
+      // Alertas: la primera DANGER creó alerta; las otras dos caen en cooldown (misma categoría, 10 s).
+      const alerts = await api()
+        .get(`/api/v1/devices/${id}/alerts?context=HOME`)
+        .expect(200);
+      expect(alerts.body.map((a: any) => a.context)).toEqual(['HOME']);
+      expect(
+        (
+          await api()
+            .get(`/api/v1/devices/${id}/alerts?context=STREET`)
+            .expect(200)
+        ).body,
+      ).toEqual([]);
+    });
+
+    it('las categorías del reloj existen y las de solo registro no admiten reglas', async () => {
+      const id = await newDevice('HOME');
+      const glass = await watch(id, 'HOME', 'GLASS_BREAK');
+      expect(glass.body.alert).toMatchObject({
+        category: 'GLASS_BREAK',
+        priority: { level: 'ATTENTION' },
+        context: 'HOME',
+      });
+      const bell = await watch(id, 'HOME', 'Church bell');
+      expect(bell.body).toMatchObject({
+        alerted: false,
+        outcome: 'DISABLED_IN_CONTEXT',
+      });
+      expect(
+        (
+          await api()
+            .get(`/api/v1/devices/${id}/detections/${bell.body.detectionId}`)
+            .expect(200)
+        ).body.classification,
+      ).toMatchObject({ category: 'BELL' });
+      await api()
+        .put(`/api/v1/devices/${id}/contexts/HOME/rules`)
+        .send({
+          rules: [{ category: 'BELL', enabled: true, priority: 'INFORMATION' }],
+        })
+        .expect(400);
+    });
   });
 });
