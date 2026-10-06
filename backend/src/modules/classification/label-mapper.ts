@@ -42,6 +42,23 @@ export const DEFAULT_LABEL_MAP: Record<string, SoundCategory> = {
   kettle: SoundCategory.KETTLE_WHISTLE,
   'water tap, faucet': SoundCategory.WATER_RUNNING,
   'school bell': SoundCategory.SCHOOL_BELL,
+  // Mismas clases YAMNet que el reloj (wear/…/LabelMapper.kt).
+  alarm: SoundCategory.GENERAL_ALARM,
+  toot: SoundCategory.CAR_HORN,
+  'car alarm': SoundCategory.CAR_ALARM,
+  skidding: SoundCategory.TIRE_SKID,
+  'tire squeal': SoundCategory.TIRE_SKID,
+  'reversing beeps': SoundCategory.REVERSING_VEHICLE,
+  'train horn': SoundCategory.TRAIN_HORN,
+  'train whistle': SoundCategory.TRAIN_HORN,
+  shatter: SoundCategory.GLASS_BREAK,
+  screaming: SoundCategory.SCREAM,
+  bell: SoundCategory.BELL,
+  'church bell': SoundCategory.BELL,
+  'jingle bell': SoundCategory.BELL,
+  chime: SoundCategory.BELL,
+  'beep, bleep': SoundCategory.WARNING_SIGNAL,
+  buzzer: SoundCategory.WARNING_SIGNAL,
 };
 
 export class LabelMapper {
