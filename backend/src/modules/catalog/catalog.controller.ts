@@ -1,11 +1,11 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
+  ACTIVE_CONTEXTS,
   PRIORITY_POLICIES,
   PriorityLevel,
   SOUND_CATALOG,
   SoundCategory,
-  UserContext,
 } from '../../domain/index.js';
 import {
   toContextDto,
@@ -48,6 +48,6 @@ export class CatalogController {
   })
   @ApiOkResponse({ type: [ContextDto] })
   contexts(): ContextDto[] {
-    return Object.values(UserContext).map(toContextDto);
+    return ACTIVE_CONTEXTS.map(toContextDto);
   }
 }
