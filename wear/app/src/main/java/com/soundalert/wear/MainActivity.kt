@@ -97,7 +97,7 @@ private fun DiagnosticScreen() {
             ) { Text(if (running) "Pausar" else "Activar") }
         }
         item { Text("Contexto: ${currentContext.label}", style = MaterialTheme.typography.labelSmall) }
-        SoundAlertContext.entries.forEach { option ->
+        SoundAlertContext.ACTIVE.forEach { option ->
             item {
                 Button(
                     onClick = { SoundAlertRuntime.contextManager.set(option) },

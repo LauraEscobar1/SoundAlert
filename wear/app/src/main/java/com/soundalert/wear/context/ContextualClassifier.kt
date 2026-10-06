@@ -18,7 +18,7 @@ import java.util.UUID
  * Flujo: DetectionEvent → [ContextualDetection] → DetectionHistory → AlertManager.
  */
 class ContextualClassifier(
-    private val contextManager: ContextManager,
+    private val contextProvider: ActiveContextProvider,
     private val rules: RuleEngine,
     private val history: DetectionHistory,
     private val alerts: AlertManager,
@@ -37,7 +37,7 @@ class ContextualClassifier(
             Log.w(TAG, "Evento UNKNOWN descartado (no debería llegar aquí)")
             return
         }
-        val context = contextManager.current // se congela aquí
+        val context = contextProvider.current // se congela aquí
         val rule = if (event.category.alertable) rules.match(event.category, context) else null
         val detection = ContextualDetection(
             id = UUID.randomUUID().toString(),

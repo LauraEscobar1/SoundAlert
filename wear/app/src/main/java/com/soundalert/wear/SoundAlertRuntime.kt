@@ -4,6 +4,8 @@ import android.content.Context
 import com.soundalert.wear.alert.AlertManager
 import com.soundalert.wear.config.AlertConfig
 import com.soundalert.wear.context.ContextManager
+import com.soundalert.wear.context.ContextStore
+import com.soundalert.wear.context.SharedPreferencesContextStore
 import com.soundalert.wear.context.ContextualClassifier
 import com.soundalert.wear.context.DetectionHistory
 import com.soundalert.wear.rules.RuleEngine
@@ -18,7 +20,20 @@ import kotlinx.coroutines.SupervisorJob
  * activa (y se puede confirmar) aunque se pause la escucha.
  */
 object SoundAlertRuntime {
-    val contextManager = ContextManager()
+    @Volatile private var contextStore: ContextStore? = null
+
+    /** Lo llama SoundAlertApp al arrancar el proceso. */
+    fun init(context: Context) {
+        if (contextStore == null) contextStore = SharedPreferencesContextStore(context)
+    }
+
+    /**
+     * Contexto activo: UNA sola instancia por proceso, compartida por la pantalla y el
+     * pipeline. Se restaura desde el almacenamiento (ver ContextManager).
+     */
+    val contextManager: ContextManager by lazy {
+        ContextManager(store = checkNotNull(contextStore) { "SoundAlertRuntime.init() no se ha llamado (SoundAlertApp)" })
+    }
 
     /** Todas las detecciones con su contexto (alerten o no). */
     val detectionHistory = DetectionHistory()
@@ -39,7 +54,7 @@ object SoundAlertRuntime {
     fun contextualClassifier(context: Context): ContextualClassifier =
         contextualClassifier ?: synchronized(this) {
             contextualClassifier ?: ContextualClassifier(
-                contextManager = contextManager,
+                contextProvider = contextManager,
                 rules = RuleEngine(),
                 history = detectionHistory,
                 alerts = alertManager(context),
