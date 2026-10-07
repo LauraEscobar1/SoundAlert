@@ -26,10 +26,11 @@ const ALWAYS: RuleSeed[] = [
 ];
 
 /**
- * Matriz activa (HOME = CASA, STREET = CALLE, OTHER = OTRO), igual que en el reloj
- * (wear/…/RuleEngine.kt). Las categorías que el reloj no produce (NAME_CALLED,
- * VEHICLE_APPROACHING, MICROWAVE_BEEP, KETTLE_WHISTLE) conservan sus reglas
- * anteriores en HOME y STREET. UNIVERSITY y WORK (históricos) no cambian.
+ * Matriz activa (HOME = CASA, STREET = CALLE, OTHER = OTRO), idéntica a la del reloj
+ * (wear/…/RuleEngine.kt). Las categorías sin clase YAMNet específica
+ * (VEHICLE_APPROACHING, NAME_CALLED, MICROWAVE_BEEP, KETTLE_WHISTLE, SCHOOL_BELL)
+ * no tienen reglas en los contextos activos: nunca alertan. UNIVERSITY y WORK
+ * (históricos, no activables) no cambian.
  */
 const SEEDS: Record<UserContext, RuleSeed[]> = {
   [UserContext.HOME]: [
@@ -44,10 +45,6 @@ const SEEDS: Record<UserContext, RuleSeed[]> = {
     [S.PHONE_RING, I],
     [S.ALARM_CLOCK, I],
     [S.WATER_RUNNING, I],
-    // Históricas (el reloj no las produce).
-    [S.NAME_CALLED, A],
-    [S.MICROWAVE_BEEP, I],
-    [S.KETTLE_WHISTLE, I],
   ],
   [UserContext.STREET]: [
     ...ALWAYS,
@@ -61,9 +58,6 @@ const SEEDS: Record<UserContext, RuleSeed[]> = {
     [S.CAR_ALARM, A],
     [S.BICYCLE_BELL, A],
     [S.DOG_BARK, I],
-    // Históricas (el reloj no las produce).
-    [S.VEHICLE_APPROACHING, A],
-    [S.NAME_CALLED, A],
   ],
   [UserContext.OTHER]: [
     ...ALWAYS,

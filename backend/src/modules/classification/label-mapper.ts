@@ -9,6 +9,14 @@ import {
  * Las entradas por defecto usan nombres de la ontología AudioSet
  * (la que usan YAMNet, PANNs, AST...). Si el modelo elegido usa otras
  * etiquetas, basta con pasar un mapa distinto.
+ *
+ * Mismo criterio que el reloj (wear/…/LabelMapper.kt): solo clases específicas.
+ * NO se mapean a propósito (quedan UNKNOWN): "Dog" (genérica; DOG_BARK solo con
+ * "Bark"), "Car passing by" (un coche que pasa no indica que se acerque),
+ * "Microwave oven" (es el aparato funcionando, no su pitido), y etiquetas que no
+ * existen en YAMNet ("kettle", "school bell"). Las categorías VEHICLE_APPROACHING,
+ * MICROWAVE_BEEP, KETTLE_WHISTLE, SCHOOL_BELL y NAME_CALLED se conservan en el enum
+ * solo por compatibilidad con datos guardados.
  */
 export const DEFAULT_LABEL_MAP: Record<string, SoundCategory> = {
   // Peligro
@@ -26,7 +34,6 @@ export const DEFAULT_LABEL_MAP: Record<string, SoundCategory> = {
   'car horn': SoundCategory.CAR_HORN,
   honking: SoundCategory.CAR_HORN,
   'air horn, truck horn': SoundCategory.CAR_HORN,
-  'car passing by': SoundCategory.VEHICLE_APPROACHING,
   'bicycle bell': SoundCategory.BICYCLE_BELL,
   'baby cry, infant cry': SoundCategory.BABY_CRYING,
   // Información
@@ -36,12 +43,8 @@ export const DEFAULT_LABEL_MAP: Record<string, SoundCategory> = {
   'telephone bell ringing': SoundCategory.PHONE_RING,
   ringtone: SoundCategory.PHONE_RING,
   bark: SoundCategory.DOG_BARK,
-  dog: SoundCategory.DOG_BARK,
   'alarm clock': SoundCategory.ALARM_CLOCK,
-  'microwave oven': SoundCategory.MICROWAVE_BEEP,
-  kettle: SoundCategory.KETTLE_WHISTLE,
   'water tap, faucet': SoundCategory.WATER_RUNNING,
-  'school bell': SoundCategory.SCHOOL_BELL,
   // Mismas clases YAMNet que el reloj (wear/…/LabelMapper.kt).
   alarm: SoundCategory.GENERAL_ALARM,
   toot: SoundCategory.CAR_HORN,

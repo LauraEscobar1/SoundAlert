@@ -39,4 +39,41 @@ describe('LabelMapper', () => {
       },
     ]);
   });
+
+  it('DOG_BARK solo con "Bark": "Dog" sola es UNKNOWN', () => {
+    expect(mapper.toCategory('Bark')).toBe(SoundCategory.DOG_BARK);
+    expect(mapper.toCategory('Dog')).toBe(SoundCategory.UNKNOWN);
+  });
+
+  it('clases genéricas o engañosas quedan UNKNOWN', () => {
+    for (const label of [
+      'Car passing by',
+      'Microwave oven',
+      'Speech',
+      'Music',
+      'Television',
+      'Walk, footsteps',
+      'Sine wave',
+      'Honk',
+      'French horn',
+      'Motorcycle',
+      'Train',
+      'Vehicle',
+      'Animal',
+    ]) {
+      expect(mapper.toCategory(label)).toBe(SoundCategory.UNKNOWN);
+    }
+  });
+
+  it('mismas clases específicas que el reloj', () => {
+    expect(mapper.toCategory('Shatter')).toBe(SoundCategory.GLASS_BREAK);
+    expect(mapper.toCategory('Screaming')).toBe(SoundCategory.SCREAM);
+    expect(mapper.toCategory('Skidding')).toBe(SoundCategory.TIRE_SKID);
+    expect(mapper.toCategory('Reversing beeps')).toBe(
+      SoundCategory.REVERSING_VEHICLE,
+    );
+    expect(mapper.toCategory('Train horn')).toBe(SoundCategory.TRAIN_HORN);
+    expect(mapper.toCategory('Car alarm')).toBe(SoundCategory.CAR_ALARM);
+    expect(mapper.toCategory('Alarm')).toBe(SoundCategory.GENERAL_ALARM);
+  });
 });
