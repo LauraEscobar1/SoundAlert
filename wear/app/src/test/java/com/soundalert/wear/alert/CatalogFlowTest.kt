@@ -112,7 +112,7 @@ class CatalogFlowTest {
     fun `clases sin mapeo fiable siguen siendo UNKNOWN aunque suenen peligrosas`() = runTest {
         val unmapped = listOf(
             "Explosion", "Boom", "Gunshot, gunfire", "Fireworks", "Bang", "Slam", "Smash, crash",
-            "Shout", "Yell", "Dog", "Honk", "Ding", "Glass", "Car passing by",
+            "Shout", "Yell", "Dog", "Animal", "Honk", "Ding", "Glass", "Car passing by",
             "Motorcycle", "Microwave oven", "Crying, sobbing", "Rumble", "Conversation", "Applause", "Clapping",
         )
         for (label in unmapped) {
