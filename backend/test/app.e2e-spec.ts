@@ -524,5 +524,38 @@ describe('SoundAlert API (e2e, memoria)', () => {
         })
         .expect(400);
     });
+
+    it('catálogo limpio: Car passing by, Dog y VEHICLE_APPROACHING no alertan en STREET; Bark sí', async () => {
+      const id = await newDevice('STREET');
+      const passing = await watch(id, 'STREET', 'Car passing by');
+      expect(passing.body).toMatchObject({
+        alerted: false,
+        outcome: 'UNKNOWN_SOUND',
+        alert: null,
+      });
+      const dog = await watch(id, 'STREET', 'Dog');
+      expect(dog.body).toMatchObject({
+        alerted: false,
+        outcome: 'UNKNOWN_SOUND',
+        alert: null,
+      });
+      // Aunque llegue la categoría directamente, no hay regla activa en STREET.
+      const approaching = await watch(id, 'STREET', 'VEHICLE_APPROACHING');
+      expect(approaching.body).toMatchObject({
+        alerted: false,
+        outcome: 'DISABLED_IN_CONTEXT',
+        alert: null,
+      });
+      const bark = await watch(id, 'STREET', 'Bark');
+      expect(bark.body).toMatchObject({
+        alerted: true,
+        context: 'STREET',
+        alert: {
+          category: 'DOG_BARK',
+          priority: { level: 'INFORMATION' },
+          vibration: { count: 1 },
+        },
+      });
+    });
   });
 });

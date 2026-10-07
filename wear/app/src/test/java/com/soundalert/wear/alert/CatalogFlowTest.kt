@@ -147,6 +147,61 @@ class CatalogFlowTest {
         assertTrue(run.events.none { it.category == SoundCategory.WARNING_SIGNAL })
     }
 
+    // ---------- Limpieza del catálogo (Dog, Car passing by, UNKNOWN) ----------
+
+    @Test
+    fun `Dog sola no produce DOG_BARK en ningun contexto`() = runTest {
+        for (context in SoundAlertContext.ACTIVE) {
+            val run = play(context, 6, "Dog" to 0.95f)
+            assertTrue("Dog en $context generó ${run.events}", run.events.isEmpty())
+            assertTrue(run.alerts.isEmpty())
+            assertTrue(run.vibrations.isEmpty())
+        }
+    }
+
+    @Test
+    fun `Bark produce DOG_BARK INFORMATION con 1 vibracion cuando alcanza su umbral`() = runTest {
+        for (context in SoundAlertContext.ACTIVE) {
+            val run = play(context, 3, "Bark" to 0.40f) // umbral DOG_BARK: 0,35
+            assertEquals("$context", listOf(SoundCategory.DOG_BARK), run.alerts.map { it.category })
+            assertEquals(Priority.INFORMATION, run.alerts.single().priority)
+            assertEquals(context, run.alerts.single().context)
+            assertEquals(listOf("1_SHORT"), run.vibrations)
+        }
+        // Por debajo del umbral no hay evento.
+        assertTrue(play(SoundAlertContext.CALLE, 6, "Bark" to 0.30f).events.isEmpty())
+    }
+
+    @Test
+    fun `Car passing by en CALLE no genera evento, alerta ni vibracion`() = runTest {
+        val run = play(SoundAlertContext.CALLE, 10, "Car passing by" to 0.95f)
+        assertTrue(run.events.isEmpty())
+        assertTrue(run.alerts.isEmpty())
+        assertTrue(run.vibrations.isEmpty())
+    }
+
+    @Test
+    fun `un sonido no mapeado en CALLE queda UNKNOWN y no alerta aunque puntue alto`() = runTest {
+        for (label in listOf("Accelerating, revving, vroom", "Traffic noise, roadway noise", "Motorcycle", "Train", "Aircraft", "Honk")) {
+            val result = mapper.classify(FloatArray(labels.size).also { it[labels.indexOf(label)] = 0.95f })
+            assertEquals(label, SoundCategory.UNKNOWN, result.topCategory)
+            val run = play(SoundAlertContext.CALLE, 6, label to 0.95f)
+            assertTrue("$label generó ${run.events}", run.events.isEmpty())
+            assertTrue(run.vibrations.isEmpty())
+        }
+    }
+
+    @Test
+    fun `el catalogo del reloj no contiene categorias sin clase YAMNet especifica`() {
+        val forbidden = setOf(
+            "VEHICLE_APPROACHING", "MICROWAVE_BEEP", "KETTLE_WHISTLE", "SCHOOL_BELL", "NAME_CALLED",
+            "EARTHQUAKE", "SEISMIC", "CAR_ACCIDENT", "MOTORCYCLE_HORN", "SECURITY_ALARM",
+            "PHONE_EMERGENCY_ALERT", "FALLING_OBJECT",
+        )
+        val present = SoundCategory.entries.map { it.name }.toSet()
+        assertTrue("Categorías no permitidas: ${forbidden intersect present}", (forbidden intersect present).isEmpty())
+    }
+
     // ---------- Precedencia específica/genérica, de punta a punta ----------
 
     @Test

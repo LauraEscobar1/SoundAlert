@@ -81,21 +81,22 @@ describe('Matriz activa contexto × categoría', () => {
     }
   });
 
-  it('las categorías históricas conservan sus reglas en HOME y STREET, y no tienen en OTHER', () => {
-    expect(effective(UserContext.HOME, S.NAME_CALLED)).toBe(A);
-    expect(effective(UserContext.HOME, S.MICROWAVE_BEEP)).toBe(I);
-    expect(effective(UserContext.HOME, S.KETTLE_WHISTLE)).toBe(I);
-    expect(effective(UserContext.STREET, S.VEHICLE_APPROACHING)).toBe(A);
-    expect(effective(UserContext.STREET, S.NAME_CALLED)).toBe(A);
-    for (const c of [
-      S.NAME_CALLED,
-      S.MICROWAVE_BEEP,
-      S.KETTLE_WHISTLE,
-      S.VEHICLE_APPROACHING,
-      S.SCHOOL_BELL,
-    ]) {
-      expect(effective(UserContext.OTHER, c)).toBeNull();
+  it('las categorías sin clase YAMNet específica no alertan en ningún contexto activo', () => {
+    for (const ctx of ACTIVE_CONTEXTS) {
+      for (const c of [
+        S.VEHICLE_APPROACHING,
+        S.NAME_CALLED,
+        S.MICROWAVE_BEEP,
+        S.KETTLE_WHISTLE,
+        S.SCHOOL_BELL,
+      ]) {
+        expect(effective(ctx, c)).toBeNull();
+      }
     }
+  });
+
+  it('VEHICLE_APPROACHING no tiene regla activa en STREET (CALLE)', () => {
+    expect(effective(UserContext.STREET, S.VEHICLE_APPROACHING)).toBeNull();
   });
 
   it('los contextos históricos UNIVERSITY y WORK conservan sus reglas', () => {
