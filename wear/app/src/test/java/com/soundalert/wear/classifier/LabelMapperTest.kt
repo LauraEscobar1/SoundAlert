@@ -108,7 +108,7 @@ class LabelMapperTest {
             "Applause", "Clapping", "Typing", "Computer keyboard", "Walk, footsteps", "Run", "Inside, small room",
             "Silence", "Television", "Radio", "Noise", "Environmental noise", "Sine wave",
             // Genéricas o engañosas
-            "Dog", "Ding", "Wind chime", "Glass", "Whistle", "Sine wave", "Chirp tone",
+            "Dog", "Animal", "Ding", "Wind chime", "Glass", "Whistle", "Sine wave", "Chirp tone",
             "Honk", "French horn", "Vehicle", "Car", "Motorcycle", "Traffic noise, roadway noise",
             "Car passing by", "Accelerating, revving, vroom", "Microwave oven", "Telephone", "Train",
             // Sin validar o con demasiados falsos positivos
