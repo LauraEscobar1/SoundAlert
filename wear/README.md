@@ -9,7 +9,7 @@ Micrófono → AudioRecord (16 kHz, mono, PCM16, bloques de 500 ms)
 → estabilizador (2 de 3, vía rápida de peligro, histéresis) → evento → logcat
 ```
 
-Todo corre dentro de un **foreground service de tipo `microphone`** (`ListeningService`): sigue escuchando con la pantalla apagada o la app cerrada. `MainActivity` es una **pantalla de diagnóstico temporal**, no la interfaz de los mockups.
+Todo corre dentro de un **foreground service de tipo `microphone`** (`ListeningService`): sigue escuchando con la pantalla apagada o la app cerrada. `MainActivity` muestra la **interfaz de los mockups** (ver *Interfaz del reloj*).
 
 Fase 2 (local, sin backend): cada evento estable sigue con
 
@@ -17,7 +17,7 @@ Fase 2 (local, sin backend): cada evento estable sigue con
 DetectionEvent → contexto actual → regla → prioridad → Alert → vibración real
 ```
 
-Fuera de estas fases: Room, WorkManager, sincronización, backend, contexto automático (ubicación/movimiento).
+Fase 3: interfaz de los mockups y sincronización con el backend (Railway → Supabase), secundaria a la detección local. Fuera de estas fases: Room, WorkManager, reglas personalizadas en el reloj, contexto automático (ubicación/movimiento).
 
 ## Contexto, reglas, alertas y vibración
 
@@ -34,13 +34,44 @@ Fuera de estas fases: Room, WorkManager, sincronización, backend, contexto auto
 
   Repeticiones: un sonido sostenido llega como un único evento (estabilizador); además no se crea otra alerta de una categoría con una alerta `ACTIVE`, ni antes de 10 s desde la anterior de esa categoría (cooldown). Confirmar no detiene el micrófono ni YAMNet. Historial en memoria de las últimas 50 alertas.
 - **Vibración** (`vibration/`): `AndroidAlertVibrator` usa `VibratorManager` + `VibrationEffect.createWaveform`, con uso `ALARM` para `DANGER`/`ATTENTION` y `NOTIFICATION` para `INFORMATION`. En el emulador no se siente; se comprueba con `adb shell dumpsys vibrator_manager`.
-- **Confirmar un `DANGER`**: botón "Confirmar" en la pantalla de diagnóstico, o acción "Confirmar" de la notificación de escucha mientras haya un peligro activo.
+- **Confirmar un `DANGER`**: botón "Entendido" de la pantalla de alerta, o acción "Confirmar" de la notificación de escucha mientras haya un peligro activo.
 
 Vibración: una vibración en curso de mayor prioridad no se interrumpe por otra de menor prioridad (Android sustituye la vibración actual por la nueva); la alerta se crea igual y solo se omite su vibración. Confirmar una alerta solo corta la vibración si es la suya. El historial en memoria recorta solo alertas cerradas: una `ACTIVE` nunca se pierde.
 
 La repetición de `DANGER` vibra de nuevo la MISMA alerta (no crea alertas ni eventos), sigue aunque el sonido haya terminado y se detiene al confirmar. Una sirena nueva después de confirmar crea otra alerta independiente.
 
 Valores en `config/AlertConfig.kt` (timeouts, cooldown, `dangerRepeatIntervalMs`, duración de pulsos).
+
+## Interfaz del reloj
+
+Jetpack Compose para Wear OS (Material 3, `ui/`). Las pantallas solo **leen** el estado que ya existe (`PipelineStatus`, `AlertManager`, `ContextManager`, `RuleEngine`, `DetectionHistory`); no deciden nada del sonido.
+
+| Pantalla | Qué muestra | De dónde salen los datos |
+|----------|-------------|--------------------------|
+| A · Reposo | Hora, chip del contexto, oreja (tocar = activar/pausar), "Escuchando" y 3 sonidos vigilados | `PipelineStatus.phase`, `ContextManager`, `RuleEngine.rulesFor` |
+| B · Sonido detectado | "IA · ANALIZANDO" / "IA · CONFIRMADO", onda, "Posible sirena 94 %", y si no alerta en ese contexto o es solo registro | Clases principales de YAMNet (≥ umbral de fin 0,15) y último `Started` del estabilizador (`ui/state/DetectionTracker`). UNKNOWN nunca se muestra |
+| C · Alerta | PELIGRO: pantalla roja + "Entendido". ATENCIÓN: anillo ámbar, un toque la cierra. AVISO: icono azul + barra de 5 s | La alerta ACTIVE más urgente del `AlertManager`; estados, tiempos y vibración son los suyos |
+| D · Contexto | CASA, CALLE, OTRO (manual; se guarda en el reloj) | `ContextManager.set` |
+| E · Sonidos en *contexto* | Reglas reales del contexto: punto = prioridad, interruptor = alerta aquí. **Solo lectura** | `RuleEngine` |
+| F · Historial | Detecciones y alertas: contexto, estado (confirmada, sin confirmar, se cerró sola, sin alerta, solo registro) y hora | Backend si hay conexión (+ lo pendiente de enviar); si no, memoria del reloj |
+
+Navegación: A → E → F deslizando en horizontal (indicador de página abajo); D tocando el chip del contexto y se vuelve deslizando a la derecha; C aparece encima de cualquier pantalla. Las listas se desplazan con la corona y las filas se estrechan hacia el borde (`TransformingLazyColumn`). En builds de depuración, una pulsación larga en la oreja abre la pantalla de diagnóstico anterior.
+
+- Tipografía: Archivo variable (`res/font/archivo.ttf`, OFL, ver `assets/NOTICE-archivo.txt`). Iconos: Material Icons (Apache 2.0) como vectores locales en `res/drawable/`. Colores medidos sobre los mockups (`ui/theme/Theme.kt`).
+- E es de solo lectura porque el `RuleEngine` no aplica reglas personalizadas: un interruptor editable no tendría efecto.
+
+## Conexión con el backend (Railway)
+
+```
+Reloj (YAMNet → reglas → alerta/vibración → UI)   ← funciona sin internet
+   └─ BackendSync (cola en disco) → API Railway → Supabase
+```
+
+- URL: `soundalert.apiUrl` en `gradle.properties` → `BuildConfig.API_BASE_URL` (se cambia con `-Psoundalert.apiUrl=…`). El reloj no lleva claves.
+- **Dispositivo**: la primera vez el reloj se registra (`POST /devices`, `WEAR_OS`, contexto actual, `minConfidence` = umbral más bajo del reloj para que el backend no descarte lo ya confirmado) y guarda el id (`SharedPreferencesDeviceStore`). En cada arranque lo comprueba con `GET /devices/:id`; si ya no existe, se registra de nuevo.
+- **Qué se envía** (`sync/BackendSync.kt`): cambio de contexto (`PUT /devices/:id/context`), cada detección confirmada con su contexto congelado (`POST …/detections/classified`, con el código de la categoría, p. ej. `SIREN`) y cada confirmación del usuario (`POST …/alerts/:alertId/ack`).
+- **Sin internet**: todo se encola en `files/sync-queue.json` y se envía al volver la red (reintentos 2–60 s y aviso de conectividad). Errores 4xx descartan solo esa operación; 5xx y red se reintentan.
+- Logs: `adb logcat -s SA/Sync`.
 
 ## Requisitos
 
@@ -163,3 +194,7 @@ adb logcat -s SA/Eval              # resultado por clip y RESUMEN por categoría
 - LiteRT 2.2.0 añade al APK `FOREGROUND_SERVICE_DATA_SYNC` y WorkManager, que no usamos, además de librerías nativas pesadas: el APK de debug pesa ~50 MB.
 - El servicio no se reanuda solo tras reiniciar el reloj ni si Android mata el proceso: Android 14+ no da acceso al micrófono a un servicio iniciado en segundo plano.
 - La latencia medida en el emulador (~1 ms) usa la CPU del Mac: no es representativa de un reloj. La batería solo se puede medir en un reloj físico.
+- Las vibraciones de `INFORMATION` usan `USAGE_NOTIFICATION`, y en Wear OS 7 (API 37) el sistema las ignora fuera de una notificación (`dumpsys vibrator_manager` → `ignored_app_ops`, restricción de audio "Zen" activa aunque No molestar esté apagado). `DANGER` y `ATTENTION` (`USAGE_ALARM`) sí vibran. Pendiente de decidir el cambio de uso.
+- El backend fecha cada detección al recibirla: lo que se envía desde la cola sin conexión queda con la hora de envío, y el cooldown del backend puede marcar como `COOLDOWN` detecciones que llegan juntas.
+- Cada instalación es un dispositivo nuevo en el backend (el id se guarda en los datos de la app; `connectedDebugAndroidTest` desinstala la app).
+- Con la app en segundo plano, una alerta no enciende la pantalla: `DANGER` sigue en la notificación de escucha. Mostrarla a pantalla completa requiere `USE_FULL_SCREEN_INTENT`, restringido desde Android 14.
