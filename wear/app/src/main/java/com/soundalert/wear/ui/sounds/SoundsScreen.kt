@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.material3.Text
@@ -26,6 +27,7 @@ import com.soundalert.wear.context.SoundAlertContext
 import com.soundalert.wear.ui.SoundUi
 import com.soundalert.wear.ui.color
 import com.soundalert.wear.ui.components.ListFootnote
+import com.soundalert.wear.ui.components.FitText
 import com.soundalert.wear.ui.components.ListRow
 import com.soundalert.wear.ui.components.WatchList
 import com.soundalert.wear.ui.icon
@@ -58,13 +60,16 @@ fun SoundsScreen() {
                 val dim = if (row.enabled) 1f else 0.55f
                 Box(Modifier.size(8.dp).alpha(dim).clip(CircleShape).background(row.priority?.color ?: SaColors.ToggleOff))
                 Spacer(Modifier.width(10.dp))
-                Text(
+                FitText(
                     SoundUi.shortName(row.category),
-                    style = SaText.row,
-                    color = if (row.enabled) SaColors.OnSurface else SaColors.Muted,
-                    maxLines = 1,
-                    modifier = Modifier.weight(1f),
+                    SaText.row,
+                    if (row.enabled) SaColors.OnSurface else SaColors.Muted,
+                    Modifier.weight(1f),
+                    maxLines = 2,
+                    minSize = 11.sp,
+                    preferOneLine = true,
                 )
+                Spacer(Modifier.width(6.dp))
                 if (row.recordOnly) {
                     Text("REGISTRO", style = SaText.label, color = SaColors.Muted)
                 } else {
@@ -72,7 +77,7 @@ fun SoundsScreen() {
                 }
             }
         }
-        item { ListFootnote("Solo lectura: reglas del reloj para ${context.label}. Peligro siempre activo.") }
+        item { ListFootnote(spec, "Solo lectura: reglas del reloj para ${context.label}. Peligro siempre activo.") }
     }
 }
 
