@@ -8,6 +8,11 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -39,6 +44,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material3.Icon
@@ -148,11 +159,10 @@ fun Waveform(level: Float, scale: WatchScale, modifier: Modifier = Modifier) = w
         animationSpec = infiniteRepeatable(tween(1_200, easing = LinearEasing), RepeatMode.Restart),
         label = "fase",
     )
-    val barWidth = 4.mdp
-    val gap = 4.5.mdp
-    Canvas(modifier.size(width = barWidth * BARS.size + gap * (BARS.size - 1), height = 54.mdp)) {
-        val w = barWidth.toPx()
-        val step = w + gap.toPx()
+    // Barras de 4 y huecos de 4,5 (medidas del mockup): 72 × 54. Se encoge si no cabe.
+    Canvas(modifier.heightIn(max = 54.mdp).fillMaxHeight().aspectRatio(WAVE_WIDTH / WAVE_HEIGHT, matchHeightConstraintsFirst = true)) {
+        val w = size.width * BAR_WIDTH / WAVE_WIDTH
+        val step = size.width * (BAR_WIDTH + BAR_GAP) / WAVE_WIDTH
         val amplitude = 0.55f + 0.45f * level.coerceIn(0f, 1f)
         BARS.forEachIndexed { i, (base, bright) ->
             val wobble = 0.82f + 0.18f * sin(phase + i * 0.9f)
@@ -167,6 +177,11 @@ fun Waveform(level: Float, scale: WatchScale, modifier: Modifier = Modifier) = w
     }
 }
 
+private const val BAR_WIDTH = 4f
+private const val BAR_GAP = 4.5f
+private const val WAVE_WIDTH = 9 * BAR_WIDTH + 8 * BAR_GAP
+private const val WAVE_HEIGHT = 54f
+
 /** Altura relativa y si es blanca (central) o gris (lateral), medidas del mockup. */
 private val BARS = listOf(
     0.22f to false,
@@ -179,3 +194,39 @@ private val BARS = listOf(
     0.32f to false,
     0.18f to false,
 )
+
+/**
+ * Texto que, si no cabe, reduce su tamaño (hasta [minSize]) antes de cortarse: así
+ * se lee completo aunque el reloj tenga la letra grande. Los "…" quedan como último recurso.
+ * Necesita un ancho acotado (width, weight o fillMaxWidth).
+ *
+ * Con [preferOneLine] y [maxLines] > 1, primero intenta una sola línea (como en los
+ * mockups) y solo pasa a varias si ni con [minSize] cabe en una.
+ */
+@Composable
+fun FitText(
+    text: String,
+    style: TextStyle,
+    color: Color,
+    modifier: Modifier = Modifier,
+    maxLines: Int = 1,
+    minSize: TextUnit = style.fontSize * 0.72f,
+    preferOneLine: Boolean = false,
+) {
+    val autoSize = TextAutoSize.StepBased(minFontSize = minSize, maxFontSize = style.fontSize, stepSize = 0.5.sp)
+    if (!preferOneLine || maxLines == 1) {
+        BasicText(text, modifier, style.copy(color = color), maxLines = maxLines, overflow = TextOverflow.Ellipsis, autoSize = autoSize)
+        return
+    }
+    val centered = style.textAlign == TextAlign.Center
+    BoxWithConstraints(modifier, contentAlignment = if (centered) Alignment.Center else Alignment.CenterStart) {
+        val measurer = rememberTextMeasurer()
+        val oneLineWidth = measurer.measure(text, style.copy(fontSize = minSize), maxLines = 1, softWrap = false).size.width
+        val lines = if (oneLineWidth <= constraints.maxWidth) 1 else maxLines
+        BasicText(text, Modifier, style.copy(color = color), maxLines = lines, overflow = TextOverflow.Ellipsis, autoSize = autoSize)
+    }
+}
+
+/** Elemento central cuadrado (oreja, icono): hasta [max], o menos si los textos necesitan el sitio. */
+fun Modifier.fitSquare(max: Dp): Modifier =
+    heightIn(max = max).fillMaxHeight().aspectRatio(1f, matchHeightConstraintsFirst = true)
