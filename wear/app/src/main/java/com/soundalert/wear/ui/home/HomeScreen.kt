@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -36,6 +38,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.Text
@@ -47,6 +50,8 @@ import com.soundalert.wear.pipeline.PipelineStatus.Phase
 import com.soundalert.wear.service.ListeningService
 import com.soundalert.wear.ui.SoundUi
 import com.soundalert.wear.ui.components.Clock
+import com.soundalert.wear.ui.components.fitSquare
+import com.soundalert.wear.ui.components.FitText
 import com.soundalert.wear.ui.components.ContextChip
 import com.soundalert.wear.ui.components.WatchScale
 import com.soundalert.wear.ui.components.WatchScreen
@@ -123,51 +128,44 @@ private fun BoxScope.ListeningContent(
     }
     val listening = status.phase == Phase.LISTENING
 
-    Box(Modifier.align(Alignment.TopCenter).offset(y = 10.mdp)) { Clock() }
-    ContextChip(context, onOpenContext, scale, Modifier.align(Alignment.TopCenter).offset(y = 27.mdp))
-
-    // Oreja: anillo exterior + círculo. Tocar = activar / pausar.
-    Box(
-        modifier = Modifier
-            .align(Alignment.TopCenter)
-            .offset(y = 58.5.mdp)
-            .size(69.mdp)
-            .clip(CircleShape)
-            .border(1.mdp, if (listening) SaColors.Inactive else SaColors.Surface, CircleShape)
-            .combinedClickable(
-                role = Role.Button,
-                onClickLabel = if (running) "Pausar la escucha" else "Activar la escucha",
-                onLongClick = onOpenDiagnostic,
-                onClick = toggle,
-            )
-            .semantics { contentDescription = if (running) "Escuchando. Toca para pausar" else "En pausa. Toca para escuchar" },
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(Modifier.size(52.mdp).clip(CircleShape).background(SaColors.Surface), contentAlignment = Alignment.Center) {
-            Icon(
-                painterResource(if (running) R.drawable.ic_ear else R.drawable.ic_ear_off),
-                contentDescription = null,
-                tint = if (running) SaColors.OnSurface else SaColors.Muted,
-                modifier = Modifier.size(28.mdp),
-            )
-        }
-    }
-
+    // Tres franjas: arriba (hora y contexto), centro (oreja) y abajo (estado). La oreja es lo
+    // único que encoge si falta sitio (p. ej. con la letra grande); los textos caben enteros.
     Column(
-        modifier = Modifier.align(Alignment.TopCenter).offset(y = 140.mdp).fillMaxWidth().padding(horizontal = 22.mdp),
+        modifier = Modifier.fillMaxSize().padding(top = 10.mdp, bottom = 20.mdp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(title, style = SaText.title, color = SaColors.OnSurface, maxLines = 1)
-        // Más abajo la esfera es más estrecha: el subtítulo va más ajustado.
-        Text(
-            subtitle,
-            style = SaText.body.copy(fontSize = SaText.body.fontSize * 0.92f),
-            color = SaColors.Secondary,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 8.mdp),
-        )
+        Clock()
+        Spacer(Modifier.height(3.mdp))
+        ContextChip(context, onOpenContext, scale)
+        Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 5.mdp), contentAlignment = Alignment.Center) {
+            // Oreja: anillo exterior + círculo. Tocar = activar / pausar.
+            Box(
+                modifier = Modifier
+                    .fitSquare(69.mdp)
+                    .clip(CircleShape)
+                    .border(1.mdp, if (listening) SaColors.Inactive else SaColors.Surface, CircleShape)
+                    .combinedClickable(
+                        role = Role.Button,
+                        onClickLabel = if (running) "Pausar la escucha" else "Activar la escucha",
+                        onLongClick = onOpenDiagnostic,
+                        onClick = toggle,
+                    )
+                    .semantics { contentDescription = if (running) "Escuchando. Toca para pausar" else "En pausa. Toca para escuchar" },
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(Modifier.fillMaxSize(52f / 69f).clip(CircleShape).background(SaColors.Surface), contentAlignment = Alignment.Center) {
+                    Icon(
+                        painterResource(if (running) R.drawable.ic_ear else R.drawable.ic_ear_off),
+                        contentDescription = null,
+                        tint = if (running) SaColors.OnSurface else SaColors.Muted,
+                        modifier = Modifier.fillMaxSize(28f / 52f),
+                    )
+                }
+            }
+        }
+        // Anchos medidos sobre la esfera: abajo es más estrecha.
+        FitText(title, SaText.title, SaColors.OnSurface, Modifier.width(150.mdp))
+        FitText(subtitle, SaText.body.copy(fontSize = 11.sp), SaColors.Secondary, Modifier.width(124.mdp), maxLines = 2, minSize = 9.5.sp, preferOneLine = true)
     }
 }
 
@@ -188,36 +186,38 @@ private fun BoxScope.DetectingContent(detection: DetectionDisplay, context: Soun
     // dBFS del bloque actual → 0..1 para la amplitud de la onda (−60 dB = mínimo).
     val level = if (dbfs.isNaN()) 0.5f else ((dbfs + 60f) / 60f).coerceIn(0f, 1f)
 
-    Box(Modifier.align(Alignment.TopCenter).offset(y = 10.mdp)) { Clock() }
-    Text(header, style = SaText.label, color = SaColors.Muted, modifier = Modifier.align(Alignment.TopCenter).offset(y = 27.mdp))
-    Waveform(level, scale, Modifier.align(Alignment.TopCenter).offset(y = 59.mdp))
     Column(
-        modifier = Modifier
-            .align(Alignment.TopCenter)
-            .offset(y = 132.mdp)
-            .fillMaxWidth()
-            .padding(horizontal = 20.mdp)
-            .semantics(mergeDescendants = true) {},
+        modifier = Modifier.fillMaxSize().padding(top = 10.mdp, bottom = 18.mdp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Sonido detectado", style = SaText.title, color = SaColors.OnSurface, maxLines = 1)
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-            Text(
-                SoundUi.possible(detection.category),
-                style = SaText.body,
-                color = SaColors.Secondary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
-            )
-            Spacer(Modifier.width(5.mdp))
-            Text(
-                String.format(Locale.US, "%d%%", (detection.confidence * 100).roundToInt()),
-                style = SaText.label.copy(letterSpacing = SaText.time.letterSpacing),
-                color = SaColors.OnSurface,
-                modifier = Modifier.clip(RoundedCornerShape(50)).background(SaColors.Track).padding(horizontal = 5.mdp, vertical = 1.5.mdp),
-            )
+        Clock()
+        Spacer(Modifier.height(3.mdp))
+        FitText(header, SaText.label.copy(textAlign = TextAlign.Center), SaColors.Muted, Modifier.width(136.mdp))
+        Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 5.mdp), contentAlignment = Alignment.Center) {
+            Waveform(level, scale)
         }
-        if (note != null) Text(note, style = SaText.body, color = SaColors.Muted, maxLines = 1)
+        Column(Modifier.semantics(mergeDescendants = true) {}, horizontalAlignment = Alignment.CenterHorizontally) {
+            FitText("Sonido detectado", SaText.title, SaColors.OnSurface, Modifier.width(156.mdp))
+            Row(Modifier.width(132.mdp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                FitText(
+                    SoundUi.possible(detection.category),
+                    SaText.body,
+                    SaColors.Secondary,
+                    Modifier.weight(1f, fill = false),
+                    maxLines = 2,
+                    minSize = 10.sp,
+                    preferOneLine = true,
+                )
+                Spacer(Modifier.width(5.mdp))
+                Text(
+                    String.format(Locale.US, "%d%%", (detection.confidence * 100).roundToInt()),
+                    style = SaText.label.copy(letterSpacing = SaText.time.letterSpacing),
+                    color = SaColors.OnSurface,
+                    maxLines = 1,
+                    modifier = Modifier.clip(RoundedCornerShape(50)).background(SaColors.Track).padding(horizontal = 5.mdp, vertical = 1.5.mdp),
+                )
+            }
+            if (note != null) FitText(note, SaText.body, SaColors.Muted, Modifier.width(116.mdp), minSize = 9.sp)
+        }
     }
 }
