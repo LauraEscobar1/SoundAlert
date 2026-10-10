@@ -7,6 +7,9 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -34,6 +37,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.Text
 import com.soundalert.wear.alert.Alert
@@ -41,6 +45,8 @@ import com.soundalert.wear.config.AlertConfig
 import com.soundalert.wear.rules.Priority
 import com.soundalert.wear.ui.SoundUi
 import com.soundalert.wear.ui.components.PriorityHeader
+import com.soundalert.wear.ui.components.fitSquare
+import com.soundalert.wear.ui.components.FitText
 import com.soundalert.wear.ui.components.WatchScale
 import com.soundalert.wear.ui.components.WatchScreen
 import com.soundalert.wear.ui.label
@@ -78,34 +84,37 @@ fun AlertScreen(alert: Alert, config: AlertConfig, onAcknowledge: () -> Unit) {
     }
 }
 
+/*
+ * Las tres alertas en tres franjas: cabecera de prioridad, icono (lo único que encoge si
+ * falta sitio) y textos con anchos medidos sobre la esfera. Si un titular no cabe, la
+ * letra se reduce antes de cortarse.
+ */
+
 @Composable
 private fun BoxScope.Danger(alert: Alert, onAcknowledge: () -> Unit, scale: WatchScale) = with(scale) {
-    PriorityHeader(alert.priority, onColor = Color.Black, inactive = Color.Black, scale = scale, modifier = Modifier.align(Alignment.TopCenter).offset(y = 15.mdp))
-    Icon(
-        painterResource(SoundUi.icon(alert.category)),
-        contentDescription = null,
-        tint = Color.Black,
-        modifier = Modifier.align(Alignment.TopCenter).offset(y = 44.mdp).size(54.mdp),
-    )
-    Text(
-        SoundUi.alertTitle(alert.category).uppercase(),
-        style = SaText.alertTitle,
-        color = Color.Black,
-        maxLines = 2,
-        overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.align(Alignment.TopCenter).offset(y = 101.mdp).fillMaxWidth().padding(horizontal = 18.mdp),
-    )
-    Box(
-        modifier = Modifier
-            .align(Alignment.TopCenter)
-            .offset(y = 150.mdp)
-            .size(width = 84.mdp, height = 27.mdp)
-            .clip(RoundedCornerShape(50))
-            .background(Color.Black)
-            .clickable(role = Role.Button, onClick = onAcknowledge),
-        contentAlignment = Alignment.Center,
+    Column(
+        modifier = Modifier.fillMaxSize().padding(top = 15.mdp, bottom = 14.mdp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Entendido", style = SaText.row.copy(fontFamily = SaFonts.SemiBold), color = Color.White)
+        PriorityHeader(alert.priority, onColor = Color.Black, inactive = Color.Black, scale = scale)
+        Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 4.mdp), contentAlignment = Alignment.Center) {
+            Icon(painterResource(SoundUi.icon(alert.category)), contentDescription = null, tint = Color.Black, modifier = Modifier.fitSquare(54.mdp))
+        }
+        FitText(SoundUi.alertTitle(alert.category).uppercase(), SaText.alertTitle, Color.Black, Modifier.width(160.mdp), maxLines = 2, minSize = 15.sp)
+        Spacer(Modifier.height(7.mdp))
+        // Píldora de "Entendido": alto mínimo cómodo para el dedo; crece con la letra.
+        Box(
+            modifier = Modifier
+                .heightIn(min = 30.mdp)
+                .widthIn(min = 84.mdp)
+                .clip(RoundedCornerShape(50))
+                .background(Color.Black)
+                .clickable(role = Role.Button, onClick = onAcknowledge)
+                .padding(horizontal = 14.mdp, vertical = 4.mdp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("Entendido", style = SaText.row.copy(fontFamily = SaFonts.SemiBold), color = Color.White, maxLines = 1)
+        }
     }
 }
 
@@ -117,39 +126,25 @@ private fun BoxScope.Attention(alert: Alert, scale: WatchScale) = with(scale) {
         val stroke = 4.mdp.toPx()
         drawCircle(color = SaColors.Attention, radius = size.minDimension / 2 - stroke / 2, style = Stroke(width = stroke))
     }
-    PriorityHeader(alert.priority, onColor = SaColors.Attention, inactive = SaColors.Inactive, scale = scale, modifier = Modifier.align(Alignment.TopCenter).offset(y = 15.mdp))
-    Box(
-        Modifier.align(Alignment.TopCenter).offset(y = 46.mdp).size(64.mdp).clip(CircleShape).background(SaColors.Attention),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(painterResource(SoundUi.icon(alert.category)), contentDescription = null, tint = Color.Black, modifier = Modifier.size(34.mdp))
-    }
+    // Todo el contenido queda dentro del anillo (radio interior ≈ 87 sobre 96).
     Column(
-        modifier = Modifier.align(Alignment.TopCenter).offset(y = 117.mdp).fillMaxWidth().padding(horizontal = 26.mdp),
+        modifier = Modifier.fillMaxSize().padding(top = 15.mdp, bottom = 25.mdp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(SoundUi.alertTitle(alert.category), style = SaText.title, color = SaColors.OnSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Text("${alert.context.label} · ${relativeTime(alert.createdAtMs, now)}", style = SaText.body, color = SaColors.Secondary, maxLines = 1)
+        PriorityHeader(alert.priority, onColor = SaColors.Attention, inactive = SaColors.Inactive, scale = scale)
+        Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 5.mdp), contentAlignment = Alignment.Center) {
+            Box(Modifier.fitSquare(64.mdp).clip(CircleShape).background(SaColors.Attention), contentAlignment = Alignment.Center) {
+                Icon(painterResource(SoundUi.icon(alert.category)), contentDescription = null, tint = Color.Black, modifier = Modifier.fillMaxSize(34f / 64f))
+            }
+        }
+        FitText(SoundUi.alertTitle(alert.category), SaText.title, SaColors.OnSurface, Modifier.width(130.mdp), maxLines = 2, minSize = 13.sp)
+        FitText("${alert.context.label} · ${relativeTime(alert.createdAtMs, now)}", SaText.body, SaColors.Secondary, Modifier.width(98.mdp), minSize = 9.sp)
     }
 }
 
 @Composable
 private fun BoxScope.Information(alert: Alert, config: AlertConfig, scale: WatchScale) = with(scale) {
     val now by nowEverySecond()
-    PriorityHeader(alert.priority, onColor = SaColors.Information, inactive = SaColors.Inactive, scale = scale, modifier = Modifier.align(Alignment.TopCenter).offset(y = 15.mdp))
-    Icon(
-        painterResource(SoundUi.icon(alert.category)),
-        contentDescription = null,
-        tint = SaColors.Information,
-        modifier = Modifier.align(Alignment.TopCenter).offset(y = 63.mdp).size(42.mdp),
-    )
-    Column(
-        modifier = Modifier.align(Alignment.TopCenter).offset(y = 128.mdp).fillMaxWidth().padding(horizontal = 26.mdp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(SoundUi.alertTitle(alert.category), style = SaText.title, color = SaColors.OnSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text("${alert.context.label} · ${relativeTime(alert.createdAtMs, now)}", style = SaText.body, color = SaColors.Secondary, maxLines = 1)
-    }
     // Tiempo que queda hasta que el AlertManager la cierre (informationTimeoutMs).
     val remaining by produceState(1f, alert.id) {
         while (true) {
@@ -158,8 +153,20 @@ private fun BoxScope.Information(alert: Alert, config: AlertConfig, scale: Watch
             delay(50)
         }
     }
-    Box(Modifier.align(Alignment.TopCenter).offset(y = 169.mdp).size(width = 48.mdp, height = 2.mdp).clip(RoundedCornerShape(50)).background(SaColors.Track)) {
-        Box(Modifier.width(48.mdp * remaining).height(2.mdp).background(SaColors.Information))
+    Column(
+        modifier = Modifier.fillMaxSize().padding(top = 15.mdp, bottom = 20.mdp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        PriorityHeader(alert.priority, onColor = SaColors.Information, inactive = SaColors.Inactive, scale = scale)
+        Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 5.mdp), contentAlignment = Alignment.Center) {
+            Icon(painterResource(SoundUi.icon(alert.category)), contentDescription = null, tint = SaColors.Information, modifier = Modifier.fitSquare(42.mdp))
+        }
+        FitText(SoundUi.alertTitle(alert.category), SaText.title, SaColors.OnSurface, Modifier.width(150.mdp), maxLines = 2, minSize = 13.sp)
+        FitText("${alert.context.label} · ${relativeTime(alert.createdAtMs, now)}", SaText.body, SaColors.Secondary, Modifier.width(116.mdp), minSize = 9.sp)
+        Spacer(Modifier.height(7.mdp))
+        Box(Modifier.size(width = 48.mdp, height = 2.mdp).clip(RoundedCornerShape(50)).background(SaColors.Track)) {
+            Box(Modifier.width(48.mdp * remaining).height(2.mdp).background(SaColors.Information))
+        }
     }
 }
 
