@@ -16,6 +16,9 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // El emulador objetivo y los relojes actuales son arm64.
         ndk { abiFilters += "arm64-v8a" }
+        // API pública del backend (Railway). No es un secreto: el reloj nunca lleva
+        // claves. Se cambia con -Psoundalert.apiUrl=... o en ~/.gradle/gradle.properties.
+        buildConfigField("String", "API_BASE_URL", "\"${providers.gradleProperty("soundalert.apiUrl").get()}\"")
     }
 
     buildTypes {
@@ -32,6 +35,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     testOptions {
@@ -56,13 +60,21 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.wear.compose.material3)
     implementation(libs.wear.compose.foundation)
+    implementation(libs.wear.compose.navigation)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     debugImplementation(libs.compose.ui.tooling)
+    debugImplementation(libs.compose.ui.test.manifest)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // org.json real: el de android.jar solo tiene stubs en los tests JVM.
+    testImplementation(libs.json)
 
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.ui.test.junit4)
+    // ui-test trae Espresso 3.5, que falla en API 37 (InputManager.getInstance ya no existe).
+    androidTestImplementation(libs.androidx.test.espresso.core)
 }
