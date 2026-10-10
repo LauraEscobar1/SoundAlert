@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -27,6 +27,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumnItemScope
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumnScope
@@ -62,17 +63,22 @@ fun WatchList(
             verticalArrangement = Arrangement.spacedBy(3.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            item { Clock() }
+            item { Box(Modifier.edgeTransformed(this, spec), contentAlignment = Alignment.Center) { Clock() } }
             item {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 4.dp)) {
+                // Arriba la esfera es más estrecha: margen lateral y letra que se ajusta antes de cortarse.
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.edgeTransformed(this, spec).padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
+                ) {
                     if (titleIcon != null) {
                         Icon(painterResource(titleIcon), contentDescription = null, tint = SaColors.OnSurface, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
                     }
-                    Text(title, style = SaText.screenTitle, color = SaColors.OnSurface, maxLines = 1)
+                    FitText(title, SaText.screenTitle, SaColors.OnSurface, Modifier.weight(1f, fill = false), minSize = 13.sp)
                     if (tag != null) {
                         Spacer(Modifier.width(5.dp))
-                        Text(tag, style = SaText.label.copy(fontSize = SaText.label.fontSize * 0.8f), color = SaColors.Muted)
+                        Text(tag, style = SaText.label.copy(fontSize = SaText.label.fontSize * 0.8f), color = SaColors.Muted, maxLines = 1)
                     }
                 }
             }
@@ -102,12 +108,13 @@ fun TransformingLazyColumnItemScope.ListRow(
         modifier = modifier
             .fillMaxWidth()
             .transformedHeight(this, spec)
-            .height(height)
+            // Altura mínima, no fija: con la letra grande la fila crece en vez de cortar el texto.
+            .heightIn(min = height)
             .graphicsLayer { with(transformation) { applyContainerTransformation() } }
             .paint(transformation.createContainerPainter(ColorPainter(container), shape, null))
             .clip(shape)
             .then(clickable)
-            .padding(horizontal = 12.dp)
+            .padding(horizontal = 12.dp, vertical = 3.dp)
             .graphicsLayer { with(transformation) { applyContentTransformation() } },
         verticalAlignment = Alignment.CenterVertically,
         content = content,
@@ -116,8 +123,19 @@ fun TransformingLazyColumnItemScope.ListRow(
 
 /** Nota pequeña al pie de una lista (estado de la sincronización, solo lectura…). */
 @Composable
-fun ListFootnote(text: String, color: Color = SaColors.Muted) {
-    Box(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 6.dp), contentAlignment = Alignment.Center) {
+fun TransformingLazyColumnItemScope.ListFootnote(spec: TransformationSpec, text: String, color: Color = SaColors.Muted) {
+    Box(Modifier.edgeTransformed(this, spec).padding(horizontal = 18.dp, vertical = 6.dp), contentAlignment = Alignment.Center) {
         Text(text, style = SaText.body.copy(fontSize = SaText.body.fontSize * 0.92f), color = color, textAlign = TextAlign.Center)
     }
+}
+
+/**
+ * Elemento sin fondo (hora, título, notas) que, como las filas, se encoge y se
+ * desvanece al llegar al borde de la esfera en lugar de quedar cortado.
+ */
+fun Modifier.edgeTransformed(scope: TransformingLazyColumnItemScope, spec: TransformationSpec): Modifier {
+    val transformation = with(scope) { SurfaceTransformation(spec) }
+    return fillMaxWidth()
+        .transformedHeight(scope, spec)
+        .graphicsLayer { with(transformation) { applyContentTransformation() } }
 }
