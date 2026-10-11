@@ -2,23 +2,26 @@ package com.soundalert.wear.ui.history
 
 import android.text.format.DateFormat
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.items
@@ -32,6 +35,7 @@ import com.soundalert.wear.sync.SyncState
 import com.soundalert.wear.ui.SoundUi
 import com.soundalert.wear.ui.color
 import com.soundalert.wear.ui.components.ListFootnote
+import com.soundalert.wear.ui.components.FitText
 import com.soundalert.wear.ui.components.ListRow
 import com.soundalert.wear.ui.components.SoundBadge
 import com.soundalert.wear.ui.components.WatchList
@@ -71,37 +75,64 @@ fun HistoryScreen(visible: Boolean) {
 
     WatchList(title = "Historial", tag = if (today) "HOY" else null) { spec ->
         if (entries.isEmpty()) {
-            item { ListFootnote(if (remote == null && visible && sync.state != SyncState.DISABLED) "Cargando…" else "Aún no se ha detectado ningún sonido", SaColors.Secondary) }
+            item { ListFootnote(spec, if (remote == null && visible && sync.state != SyncState.DISABLED) "Cargando…" else "Aún no se ha detectado ningún sonido", SaColors.Secondary) }
         }
         items(entries, key = { it.id }) { entry ->
             ListRow(
                 spec = spec,
                 container = SaColors.Surface,
-                height = 42.dp,
+                start = 4.2.dp,
+                end = 8.4.dp,
                 modifier = Modifier.clearAndSetSemantics { contentDescription = describe(entry, historyTime(entry.atMs, now, is24Hour)) },
             ) {
                 val badge = entry.priority?.color ?: SaColors.Inactive
-                SoundBadge(entry.category, badge, 24.dp, iconTint = if (entry.priority != null) SaColors.Background else SaColors.OnSurface)
-                Spacer(Modifier.width(8.dp))
+                // Mockup: círculo de 18,6 y texto a 6,8; la hora a la derecha.
+                SoundBadge(entry.category, badge, 18.6.dp, iconTint = if (entry.priority != null) SaColors.Background else SaColors.OnSurface)
+                Spacer(Modifier.width(6.8.dp))
                 Column(Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(name(entry), style = SaText.row, color = SaColors.OnSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                        Spacer(Modifier.width(4.dp))
-                        Text(historyTime(entry.atMs, now, is24Hour), style = SaText.time, color = SaColors.Secondary, maxLines = 1)
-                    }
-                    Text(
+                    NameAndTime(name(entry), historyTime(entry.atMs, now, is24Hour))
+                    FitText(
                         "${entry.contextLabel} · ${outcomeText(entry.outcome)}",
-                        style = SaText.body.copy(fontSize = SaText.body.fontSize * 0.85f, textAlign = TextAlign.Start),
-                        color = SaColors.Secondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                        SaText.body.copy(fontSize = SaText.body.fontSize * 0.85f, textAlign = TextAlign.Start),
+                        SaColors.Secondary,
+                        Modifier.fillMaxWidth(),
                     )
                 }
             }
         }
-        item { ListFootnote(if (sync.state == SyncState.DISABLED) "Datos de este reloj" else sourceText(remote, sync.pending)) }
+        item { ListFootnote(spec, if (sync.state == SyncState.DISABLED) "Datos de este reloj" else sourceText(remote, sync.pending)) }
     }
 }
+
+/**
+ * Nombre y hora en una línea, como en el mockup, si el nombre cabe entero (como mucho
+ * al 90 % de su tamaño). Si no cabe (p. ej. con la letra grande), la hora baja a su
+ * propia línea en vez de cortar el nombre.
+ */
+@Composable
+private fun NameAndTime(name: String, time: String) {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val measurer = rememberTextMeasurer()
+        val gap = 4.dp
+        val timeWidth = measurer.measure(time, SaText.time, maxLines = 1).size.width
+        val nameMinWidth = measurer.measure(name, SaText.row.copy(fontSize = NAME_MIN_SIZE), maxLines = 1).size.width
+        val oneLine = nameMinWidth + timeWidth + with(LocalDensity.current) { gap.roundToPx() } <= constraints.maxWidth
+        if (oneLine) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                FitText(name, SaText.row, SaColors.OnSurface, Modifier.weight(1f), minSize = NAME_MIN_SIZE)
+                Spacer(Modifier.width(gap))
+                Text(time, style = SaText.time, color = SaColors.Secondary, maxLines = 1)
+            }
+        } else {
+            Column {
+                FitText(name, SaText.row, SaColors.OnSurface, Modifier.fillMaxWidth(), minSize = NAME_MIN_SIZE)
+                Text(time, style = SaText.time, color = SaColors.Secondary, maxLines = 1)
+            }
+        }
+    }
+}
+
+private val NAME_MIN_SIZE = SaText.row.fontSize * 0.9f
 
 private fun name(entry: HistoryEntry): String =
     if (entry.category != SoundCategory.UNKNOWN) SoundUi.shortName(entry.category) else entry.remoteName ?: SoundUi.shortName(entry.category)

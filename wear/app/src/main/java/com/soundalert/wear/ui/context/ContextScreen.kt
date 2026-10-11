@@ -1,24 +1,22 @@
 package com.soundalert.wear.ui.context
 
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.items
-import androidx.wear.compose.material3.Icon
-import androidx.wear.compose.material3.Text
 import com.soundalert.wear.R
 import com.soundalert.wear.SoundAlertRuntime
 import com.soundalert.wear.context.SoundAlertContext
 import com.soundalert.wear.ui.components.ListFootnote
+import com.soundalert.wear.ui.components.FitText
+import com.soundalert.wear.ui.components.GlyphIcon
 import com.soundalert.wear.ui.components.ListRow
 import com.soundalert.wear.ui.components.WatchList
 import com.soundalert.wear.ui.icon
@@ -40,7 +38,8 @@ fun ContextScreen(onSelected: () -> Unit) {
             ListRow(
                 spec = spec,
                 container = if (selected) SaColors.OnSurface else SaColors.Surface,
-                height = 38.dp,
+                start = 11.3.dp,
+                end = 10.8.dp,
                 role = Role.RadioButton,
                 modifier = Modifier.semantics { this.selected = selected },
                 onClick = {
@@ -48,12 +47,13 @@ fun ContextScreen(onSelected: () -> Unit) {
                     onSelected()
                 },
             ) {
-                Icon(painterResource(option.icon), contentDescription = null, tint = content, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(9.dp))
-                Text(option.label, style = SaText.row, color = content, modifier = Modifier.weight(1f))
-                if (selected) Icon(painterResource(R.drawable.ic_check), contentDescription = null, tint = content, modifier = Modifier.size(18.dp))
+                // Mockup: dibujo del icono de 9 de alto, texto a 8,6 del icono, ✓ a la derecha.
+                GlyphIcon(option.icon, glyphHeight = 9.dp, tint = content, maxGlyphWidth = 10.dp)
+                Spacer(Modifier.width(8.6.dp))
+                FitText(option.label, SaText.row, content, Modifier.weight(1f), maxLines = 2)
+                if (selected) GlyphIcon(R.drawable.ic_check, glyphHeight = 7.dp, tint = content)
             }
         }
-        item { ListFootnote("Lo eliges tú. Cada contexto vigila sus propios sonidos.") }
+        item { ListFootnote(spec, "Lo eliges tú. Cada contexto vigila sus propios sonidos.") }
     }
 }

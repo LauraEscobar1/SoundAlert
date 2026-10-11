@@ -26,6 +26,7 @@ import com.soundalert.wear.context.SoundAlertContext
 import com.soundalert.wear.ui.SoundUi
 import com.soundalert.wear.ui.color
 import com.soundalert.wear.ui.components.ListFootnote
+import com.soundalert.wear.ui.components.FitText
 import com.soundalert.wear.ui.components.ListRow
 import com.soundalert.wear.ui.components.WatchList
 import com.soundalert.wear.ui.icon
@@ -52,27 +53,30 @@ fun SoundsScreen() {
             ListRow(
                 spec = spec,
                 container = if (row.enabled) SaColors.Surface else SaColors.SurfaceDim,
-                height = 34.dp,
+                start = 9.1.dp,
+                end = 6.3.dp,
                 modifier = Modifier.clearAndSetSemantics { contentDescription = describe(row, context) },
             ) {
                 val dim = if (row.enabled) 1f else 0.55f
-                Box(Modifier.size(8.dp).alpha(dim).clip(CircleShape).background(row.priority?.color ?: SaColors.ToggleOff))
-                Spacer(Modifier.width(10.dp))
-                Text(
+                // Mockup: punto de 5,9, texto a 6,3 del punto e interruptor de 22,2 × 13,6.
+                Box(Modifier.size(5.9.dp).alpha(dim).clip(CircleShape).background(row.priority?.color ?: SaColors.ToggleOff))
+                Spacer(Modifier.width(6.3.dp))
+                FitText(
                     SoundUi.shortName(row.category),
-                    style = SaText.row,
-                    color = if (row.enabled) SaColors.OnSurface else SaColors.Muted,
-                    maxLines = 1,
-                    modifier = Modifier.weight(1f),
+                    SaText.row,
+                    if (row.enabled) SaColors.OnSurface else SaColors.Muted,
+                    Modifier.weight(1f),
+                    maxLines = 2,
                 )
+                Spacer(Modifier.width(4.dp))
                 if (row.recordOnly) {
-                    Text("REGISTRO", style = SaText.label, color = SaColors.Muted)
+                    Text("REGISTRO", style = SaText.labelSmall, color = SaColors.Muted, maxLines = 1)
                 } else {
                     ToggleIndicator(on = row.enabled)
                 }
             }
         }
-        item { ListFootnote("Solo lectura: reglas del reloj para ${context.label}. Peligro siempre activo.") }
+        item { ListFootnote(spec, "Solo lectura: reglas del reloj para ${context.label}. Peligro siempre activo.") }
     }
 }
 
@@ -80,10 +84,10 @@ fun SoundsScreen() {
 @Composable
 private fun ToggleIndicator(on: Boolean) {
     Box(
-        Modifier.size(width = 26.dp, height = 15.dp).clip(RoundedCornerShape(50)).background(if (on) SaColors.OnSurface else SaColors.Inactive).padding(2.dp),
+        Modifier.size(width = 22.2.dp, height = 13.6.dp).clip(RoundedCornerShape(50)).background(if (on) SaColors.OnSurface else SaColors.Inactive).padding(1.6.dp),
         contentAlignment = if (on) Alignment.CenterEnd else Alignment.CenterStart,
     ) {
-        Box(Modifier.size(11.dp).clip(CircleShape).background(if (on) SaColors.Background else SaColors.ToggleOff))
+        Box(Modifier.size(10.4.dp).clip(CircleShape).background(if (on) SaColors.Background else SaColors.ToggleOff))
     }
 }
 
