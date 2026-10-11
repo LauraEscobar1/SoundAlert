@@ -1,6 +1,7 @@
 package com.soundalert.wear.ui.components
 
 import android.text.format.DateFormat
+import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -8,11 +9,6 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.text.BasicText
-import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,36 +18,47 @@ import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.VectorGroup
+import androidx.compose.ui.graphics.vector.VectorPath
+import androidx.compose.ui.graphics.vector.toPath
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.Text
 import com.soundalert.wear.classifier.SoundCategory
@@ -63,10 +70,10 @@ import com.soundalert.wear.ui.icon
 import com.soundalert.wear.ui.label
 import com.soundalert.wear.ui.theme.SaColors
 import com.soundalert.wear.ui.theme.SaText
-import kotlinx.coroutines.delay
 import java.util.Date
 import kotlin.math.PI
 import kotlin.math.sin
+import kotlinx.coroutines.delay
 
 /** Los mockups miden 192 dp de diámetro: [u] escala sus medidas a la pantalla real. */
 class WatchScale(val u: Float) {
@@ -89,9 +96,12 @@ fun WatchScreen(
 
 private const val MOCKUP_DIAMETER_DP = 192f
 
-/** Hora recta como en los mockups ("10:24"), respetando el formato 12/24 h del reloj. */
+/**
+ * Hora recta como en los mockups ("10:24"), respetando el formato 12/24 h del reloj.
+ * A y B: [SaText.clock] en blanco. Listas: [SaText.clockSmall] en gris.
+ */
 @Composable
-fun Clock(modifier: Modifier = Modifier) {
+fun Clock(modifier: Modifier = Modifier, style: TextStyle = SaText.clock, color: Color = SaColors.OnSurface) {
     val context = LocalContext.current
     val now by produceState(System.currentTimeMillis()) {
         while (true) {
@@ -99,51 +109,117 @@ fun Clock(modifier: Modifier = Modifier) {
             delay(60_000 - value % 60_000)
         }
     }
-    Text(DateFormat.getTimeFormat(context).format(Date(now)), modifier = modifier, style = SaText.clock, color = SaColors.OnSurface)
+    Text(DateFormat.getTimeFormat(context).format(Date(now)), modifier = modifier, style = style, color = color, maxLines = 1)
 }
 
-/** Barras de prioridad + etiqueta ("▬▬▬ PELIGRO"). El número de barras es el de vibraciones. */
+/**
+ * Barras de prioridad + etiqueta ("▬▬▬ PELIGRO"). El número de barras es el de
+ * vibraciones. Mockup: barras de 10 × 4,1 con 2,7 de separación.
+ */
 @Composable
 fun PriorityHeader(priority: Priority, onColor: Color, inactive: Color, scale: WatchScale, modifier: Modifier = Modifier) = with(scale) {
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(horizontalArrangement = Arrangement.spacedBy(3.mdp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(2.7.mdp)) {
             repeat(3) { index ->
                 Box(
-                    Modifier.size(width = 11.mdp, height = 3.5.mdp)
+                    Modifier.size(width = 10.mdp, height = 4.1.mdp)
                         .clip(RoundedCornerShape(50))
                         .background(if (index < priority.bars) onColor else inactive),
                 )
             }
         }
-        Spacer(Modifier.height(4.mdp))
-        Text(priority.label, style = SaText.label, color = onColor)
+        Spacer(Modifier.height(3.3.mdp))
+        Text(priority.label, style = SaText.label, color = onColor, maxLines = 1)
     }
 }
 
-/** Chip del contexto activo ("⌂ CASA"). Al tocarlo se abre la pantalla de contexto. */
+/** Chip del contexto activo ("⌂ CASA"), 40 × 16 en el mockup. Al tocarlo se abre la pantalla de contexto. */
 @Composable
 fun ContextChip(context: SoundAlertContext, onClick: () -> Unit, scale: WatchScale, modifier: Modifier = Modifier) = with(scale) {
     Row(
         modifier = modifier
+            .height(16.3.mdp)
             .clip(RoundedCornerShape(50))
             .background(SaColors.Surface)
             .clickable(onClickLabel = "Cambiar contexto", role = Role.Button, onClick = onClick)
             .semantics { contentDescription = "Contexto: ${context.label}" }
-            .padding(horizontal = 7.mdp, vertical = 3.mdp),
+            .padding(start = 5.9.mdp, end = 6.3.mdp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(painterResource(context.icon), contentDescription = null, tint = SaColors.OnSurface, modifier = Modifier.size(9.mdp))
-        Spacer(Modifier.width(3.mdp))
-        Text(context.label.uppercase(), style = SaText.label, color = SaColors.OnSurface)
+        GlyphIcon(context.icon, glyphHeight = 7.2.mdp, tint = SaColors.OnSurface)
+        Spacer(Modifier.width(5.mdp))
+        Text(context.label.uppercase(), style = SaText.labelSmall, color = SaColors.OnSurface, maxLines = 1)
     }
 }
 
-/** Icono de una categoría en un círculo de color (historial). */
+/** Icono de una categoría en un círculo de color (historial: círculo de 18,6 en el mockup). */
 @Composable
 fun SoundBadge(category: SoundCategory, color: Color, size: Dp, iconTint: Color = Color.Black) {
     Box(Modifier.size(size).clip(CircleShape).background(color), contentAlignment = Alignment.Center) {
-        Icon(painterResource(SoundUi.icon(category)), contentDescription = null, tint = iconTint, modifier = Modifier.size(size * 0.58f))
+        GlyphIcon(SoundUi.icon(category), glyphHeight = size * 0.48f, tint = iconTint, maxGlyphWidth = size * 0.6f)
     }
+}
+
+/**
+ * Icono vectorial dimensionado por su DIBUJO y no por su caja de 24 unidades: la
+ * sirena, el fuego o el timbre ocupan partes distintas de esa caja, y en el mockup se
+ * miden por lo que se ve. [glyphHeight] es el alto del dibujo ([maxGlyphWidth] lo limita
+ * a lo ancho) y el dibujo, no la caja, queda centrado en el espacio que ocupa.
+ */
+@Composable
+fun GlyphIcon(
+    @DrawableRes res: Int,
+    glyphHeight: Dp,
+    tint: Color,
+    modifier: Modifier = Modifier,
+    maxGlyphWidth: Dp = Dp.Infinity,
+) {
+    val vector = ImageVector.vectorResource(res)
+    val bounds = remember(vector) { glyphBounds(vector) }
+    val unit = minOf(glyphHeight.value / bounds.height, maxGlyphWidth.value / bounds.width) // dp por unidad del icono
+    Box(modifier.size((bounds.width * unit).dp, (bounds.height * unit).dp), contentAlignment = Alignment.Center) {
+        Icon(
+            vector,
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier
+                .requiredSize((vector.viewportWidth * unit).dp, (vector.viewportHeight * unit).dp)
+                .offset(((vector.viewportWidth / 2 - bounds.center.x) * unit).dp, ((vector.viewportHeight / 2 - bounds.center.y) * unit).dp),
+        )
+    }
+}
+
+/** Rectángulo que ocupa el dibujo dentro del viewport del icono (con las escalas de sus grupos). */
+private fun glyphBounds(vector: ImageVector): Rect {
+    var left = Float.POSITIVE_INFINITY
+    var top = Float.POSITIVE_INFINITY
+    var right = Float.NEGATIVE_INFINITY
+    var bottom = Float.NEGATIVE_INFINITY
+    fun visit(group: VectorGroup, map: (Offset) -> Offset) {
+        for (node in group) {
+            when (node) {
+                is VectorPath -> {
+                    val b = node.pathData.toPath().getBounds()
+                    val a = map(b.topLeft)
+                    val c = map(b.bottomRight)
+                    left = minOf(left, a.x, c.x)
+                    right = maxOf(right, a.x, c.x)
+                    top = minOf(top, a.y, c.y)
+                    bottom = maxOf(bottom, a.y, c.y)
+                }
+                is VectorGroup -> visit(node) { p ->
+                    map(
+                        Offset(
+                            (p.x - node.pivotX) * node.scaleX + node.pivotX + node.translationX,
+                            (p.y - node.pivotY) * node.scaleY + node.pivotY + node.translationY,
+                        ),
+                    )
+                }
+            }
+        }
+    }
+    visit(vector.root) { it }
+    return if (right > left && bottom > top) Rect(left, top, right, bottom) else Rect(0f, 0f, vector.viewportWidth, vector.viewportHeight)
 }
 
 /**
@@ -159,13 +235,14 @@ fun Waveform(level: Float, scale: WatchScale, modifier: Modifier = Modifier) = w
         animationSpec = infiniteRepeatable(tween(1_200, easing = LinearEasing), RepeatMode.Restart),
         label = "fase",
     )
-    // Barras de 4 y huecos de 4,5 (medidas del mockup): 72 × 54. Se encoge si no cabe.
-    Canvas(modifier.heightIn(max = 54.mdp).fillMaxHeight().aspectRatio(WAVE_WIDTH / WAVE_HEIGHT, matchHeightConstraintsFirst = true)) {
+    // Mockup: 9 barras de 5,4 con huecos de 3,2 (≈ 74 × 54,7). Se encoge si no cabe.
+    Canvas(modifier.heightIn(max = WAVE_HEIGHT.mdp).fillMaxHeight().aspectRatio(WAVE_WIDTH / WAVE_HEIGHT, matchHeightConstraintsFirst = true)) {
         val w = size.width * BAR_WIDTH / WAVE_WIDTH
         val step = size.width * (BAR_WIDTH + BAR_GAP) / WAVE_WIDTH
-        val amplitude = 0.55f + 0.45f * level.coerceIn(0f, 1f)
+        // Con sonido fuerte, alturas del mockup; más bajo, la onda se reduce hasta el 70 %.
+        val amplitude = 0.7f + 0.3f * level.coerceIn(0f, 1f)
         BARS.forEachIndexed { i, (base, bright) ->
-            val wobble = 0.82f + 0.18f * sin(phase + i * 0.9f)
+            val wobble = 0.9f + 0.1f * sin(phase + i * 0.9f)
             val h = size.height * base * wobble * amplitude
             drawRoundRect(
                 color = if (bright) SaColors.OnSurface else SaColors.Inactive,
@@ -177,31 +254,29 @@ fun Waveform(level: Float, scale: WatchScale, modifier: Modifier = Modifier) = w
     }
 }
 
-private const val BAR_WIDTH = 4f
-private const val BAR_GAP = 4.5f
+private const val BAR_WIDTH = 5.4f
+private const val BAR_GAP = 3.2f
 private const val WAVE_WIDTH = 9 * BAR_WIDTH + 8 * BAR_GAP
-private const val WAVE_HEIGHT = 54f
+private const val WAVE_HEIGHT = 54.7f
 
-/** Altura relativa y si es blanca (central) o gris (lateral), medidas del mockup. */
+/** Altura relativa de cada barra y si es blanca (central) o gris (lateral), medidas del mockup. */
 private val BARS = listOf(
     0.22f to false,
-    0.42f to false,
+    0.45f to false,
     0.74f to true,
     1.0f to true,
-    0.62f to true,
-    0.92f to true,
-    0.5f to false,
-    0.32f to false,
-    0.18f to false,
+    0.63f to true,
+    0.89f to true,
+    0.52f to false,
+    0.31f to false,
+    0.17f to false,
 )
 
 /**
- * Texto que, si no cabe, reduce su tamaño (hasta [minSize]) antes de cortarse: así
- * se lee completo aunque el reloj tenga la letra grande. Los "…" quedan como último recurso.
- * Necesita un ancho acotado (width, weight o fillMaxWidth).
- *
- * Con [preferOneLine] y [maxLines] > 1, primero intenta una sola línea (como en los
- * mockups) y solo pasa a varias si ni con [minSize] cabe en una.
+ * Texto con el tamaño del diseño. Si no cabe, primero usa más líneas (hasta [maxLines]);
+ * solo como último recurso reduce la letra, y como mucho a [minSize] (90 %), para que
+ * dos textos equivalentes no acaben con tamaños visiblemente distintos. Los "…" quedan
+ * para casos extremos. Necesita un ancho acotado (width, weight o fillMaxWidth).
  */
 @Composable
 fun FitText(
@@ -210,23 +285,18 @@ fun FitText(
     color: Color,
     modifier: Modifier = Modifier,
     maxLines: Int = 1,
-    minSize: TextUnit = style.fontSize * 0.72f,
-    preferOneLine: Boolean = false,
+    minSize: TextUnit = style.fontSize * 0.9f,
 ) {
-    val autoSize = TextAutoSize.StepBased(minFontSize = minSize, maxFontSize = style.fontSize, stepSize = 0.5.sp)
-    if (!preferOneLine || maxLines == 1) {
-        BasicText(text, modifier, style.copy(color = color), maxLines = maxLines, overflow = TextOverflow.Ellipsis, autoSize = autoSize)
-        return
-    }
-    val centered = style.textAlign == TextAlign.Center
-    BoxWithConstraints(modifier, contentAlignment = if (centered) Alignment.Center else Alignment.CenterStart) {
-        val measurer = rememberTextMeasurer()
-        val oneLineWidth = measurer.measure(text, style.copy(fontSize = minSize), maxLines = 1, softWrap = false).size.width
-        val lines = if (oneLineWidth <= constraints.maxWidth) 1 else maxLines
-        BasicText(text, Modifier, style.copy(color = color), maxLines = lines, overflow = TextOverflow.Ellipsis, autoSize = autoSize)
-    }
+    BasicText(
+        text,
+        modifier,
+        style.copy(color = color),
+        maxLines = maxLines,
+        overflow = TextOverflow.Ellipsis,
+        autoSize = TextAutoSize.StepBased(minFontSize = minSize, maxFontSize = style.fontSize, stepSize = 0.25.sp),
+    )
 }
 
-/** Elemento central cuadrado (oreja, icono): hasta [max], o menos si los textos necesitan el sitio. */
+/** Elemento central cuadrado (oreja): hasta [max], o menos si los textos necesitan el sitio. */
 fun Modifier.fitSquare(max: Dp): Modifier =
     heightIn(max = max).fillMaxHeight().aspectRatio(1f, matchHeightConstraintsFirst = true)

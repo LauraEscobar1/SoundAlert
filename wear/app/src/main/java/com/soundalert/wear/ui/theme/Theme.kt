@@ -62,15 +62,46 @@ object SaFonts {
     val Mono = FontFamily.Monospace
 }
 
+/**
+ * Tamaños medidos sobre los mockups (pantalla de 192 dp, escala 1:1). Mismas familias,
+ * pesos y anchos de siempre (SaFonts); solo cambian tamaño e interlineado.
+ */
 object SaText {
-    val alertTitle = TextStyle(fontFamily = SaFonts.Black, fontSize = 24.sp, lineHeight = 23.sp, textAlign = TextAlign.Center)
-    val title = TextStyle(fontFamily = SaFonts.Bold, fontSize = 18.sp, lineHeight = 19.sp, textAlign = TextAlign.Center)
-    val screenTitle = TextStyle(fontFamily = SaFonts.Bold, fontSize = 17.sp, lineHeight = 18.sp)
-    val row = TextStyle(fontFamily = SaFonts.SemiBold, fontSize = 14.sp, lineHeight = 16.sp)
-    val body = TextStyle(fontFamily = SaFonts.Regular, fontSize = 12.sp, lineHeight = 14.sp, textAlign = TextAlign.Center)
-    val clock = TextStyle(fontFamily = SaFonts.SemiBold, fontSize = 13.sp, lineHeight = 14.sp)
-    val label = TextStyle(fontFamily = SaFonts.Mono, fontWeight = FontWeight.Bold, fontSize = 9.5.sp, lineHeight = 11.sp, letterSpacing = 1.2.sp)
-    val time = TextStyle(fontFamily = SaFonts.Mono, fontSize = 11.sp, lineHeight = 12.sp)
+    /** "SIRENA DE / EMERGENCIA": mayúsculas de 13,1 dp, 17,2 dp entre líneas. */
+    val alertTitle = TextStyle(fontFamily = SaFonts.Black, fontSize = 19.sp, lineHeight = 17.sp, textAlign = TextAlign.Center)
+
+    /** "Escuchando", "Sonido detectado", "Bocina de / vehículo", "Timbre". */
+    val title = TextStyle(fontFamily = SaFonts.Bold, fontSize = 16.5.sp, lineHeight = 16.sp, textAlign = TextAlign.Center)
+
+    /** "Contexto", "Sonidos en calle", "Historial". */
+    val screenTitle = TextStyle(fontFamily = SaFonts.Bold, fontSize = 11.5.sp, lineHeight = 13.sp)
+
+    /** Filas de las listas ("Calle", "Sirena", "Bocina"). */
+    val row = TextStyle(fontFamily = SaFonts.SemiBold, fontSize = 9.5.sp, lineHeight = 11.sp)
+
+    /** Subtítulos ("Timbre · Alarma · Bebé", "Calle · ahora"). */
+    val body = TextStyle(fontFamily = SaFonts.Regular, fontSize = 7.8.sp, lineHeight = 9.5.sp, textAlign = TextAlign.Center)
+
+    /** "Entendido". */
+    val button = TextStyle(fontFamily = SaFonts.SemiBold, fontSize = 9.sp, lineHeight = 11.sp, textAlign = TextAlign.Center)
+
+    /** Hora de las pantallas A y B. */
+    val clock = TextStyle(fontFamily = SaFonts.SemiBold, fontSize = 10.5.sp, lineHeight = 12.sp)
+
+    /** Hora de las listas (D, E, F): más pequeña y gris en el mockup. */
+    val clockSmall = TextStyle(fontFamily = SaFonts.SemiBold, fontSize = 8.5.sp, lineHeight = 10.sp)
+
+    /** "PELIGRO", "ATENCIÓN", "AVISO". El mockup no separa las letras más allá de la monoespaciada. */
+    val label = TextStyle(fontFamily = SaFonts.Mono, fontWeight = FontWeight.Bold, fontSize = 7.9.sp, lineHeight = 9.sp)
+
+    /** "IA · ANALIZANDO", chip "CASA", píldora "94%". */
+    val labelSmall = TextStyle(fontFamily = SaFonts.Mono, fontWeight = FontWeight.Bold, fontSize = 7.sp, lineHeight = 8.5.sp)
+
+    /** Etiqueta junto al título de las listas ("MANUAL", "HOY"). */
+    val tag = TextStyle(fontFamily = SaFonts.Mono, fontSize = 5.5.sp, lineHeight = 7.sp)
+
+    /** Hora del historial ("10:12"). */
+    val time = TextStyle(fontFamily = SaFonts.Mono, fontSize = 6.5.sp, lineHeight = 8.sp)
 }
 
 @Composable

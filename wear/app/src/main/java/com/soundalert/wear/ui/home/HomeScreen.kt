@@ -10,37 +10,33 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.Text
 import com.soundalert.wear.R
 import com.soundalert.wear.SoundAlertRuntime
@@ -52,6 +48,7 @@ import com.soundalert.wear.ui.SoundUi
 import com.soundalert.wear.ui.components.Clock
 import com.soundalert.wear.ui.components.fitSquare
 import com.soundalert.wear.ui.components.FitText
+import com.soundalert.wear.ui.components.GlyphIcon
 import com.soundalert.wear.ui.components.ContextChip
 import com.soundalert.wear.ui.components.WatchScale
 import com.soundalert.wear.ui.components.WatchScreen
@@ -128,20 +125,21 @@ private fun BoxScope.ListeningContent(
     }
     val listening = status.phase == Phase.LISTENING
 
-    // Tres franjas: arriba (hora y contexto), centro (oreja) y abajo (estado). La oreja es lo
-    // único que encoge si falta sitio (p. ej. con la letra grande); los textos caben enteros.
+    // Medidas del mockup A (sobre 192): hora con centro en y≈17, chip 40 × 16 en y≈35,
+    // oreja de 70 centrada en el hueco y título/subtítulo abajo (y≈152 / 166). Si la letra
+    // del reloj es mayor, la oreja es lo único que encoge; los textos caben enteros.
     Column(
-        modifier = Modifier.fillMaxSize().padding(top = 10.mdp, bottom = 20.mdp),
+        modifier = Modifier.fillMaxSize().padding(top = 11.8.mdp, bottom = 21.mdp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Clock()
-        Spacer(Modifier.height(3.mdp))
+        Spacer(Modifier.height(3.6.mdp))
         ContextChip(context, onOpenContext, scale)
-        Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 5.mdp), contentAlignment = Alignment.Center) {
-            // Oreja: anillo exterior + círculo. Tocar = activar / pausar.
-            Box(
+        Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 3.mdp), contentAlignment = Alignment.Center) {
+            // Oreja: anillo exterior (70,5) + círculo (52) + dibujo de 25,8 de alto. Tocar = activar / pausar.
+            BoxWithConstraints(
                 modifier = Modifier
-                    .fitSquare(69.mdp)
+                    .fitSquare(70.5.mdp)
                     .clip(CircleShape)
                     .border(1.mdp, if (listening) SaColors.Inactive else SaColors.Surface, CircleShape)
                     .combinedClickable(
@@ -153,19 +151,19 @@ private fun BoxScope.ListeningContent(
                     .semantics { contentDescription = if (running) "Escuchando. Toca para pausar" else "En pausa. Toca para escuchar" },
                 contentAlignment = Alignment.Center,
             ) {
-                Box(Modifier.fillMaxSize(52f / 69f).clip(CircleShape).background(SaColors.Surface), contentAlignment = Alignment.Center) {
-                    Icon(
-                        painterResource(if (running) R.drawable.ic_ear else R.drawable.ic_ear_off),
-                        contentDescription = null,
+                val ring = maxHeight
+                Box(Modifier.size(ring * (52f / 70.5f)).clip(CircleShape).background(SaColors.Surface), contentAlignment = Alignment.Center) {
+                    GlyphIcon(
+                        if (running) R.drawable.ic_ear else R.drawable.ic_ear_off,
+                        glyphHeight = ring * (25.8f / 70.5f),
                         tint = if (running) SaColors.OnSurface else SaColors.Muted,
-                        modifier = Modifier.fillMaxSize(28f / 52f),
                     )
                 }
             }
         }
-        // Anchos medidos sobre la esfera: abajo es más estrecha.
         FitText(title, SaText.title, SaColors.OnSurface, Modifier.width(150.mdp))
-        FitText(subtitle, SaText.body.copy(fontSize = 11.sp), SaColors.Secondary, Modifier.width(124.mdp), maxLines = 2, minSize = 9.5.sp, preferOneLine = true)
+        Spacer(Modifier.height(1.mdp))
+        FitText(subtitle, SaText.body, SaColors.Secondary, Modifier.width(124.mdp), maxLines = 2)
     }
 }
 
@@ -183,41 +181,38 @@ private fun BoxScope.DetectingContent(detection: DetectionDisplay, context: Soun
         rule == null -> "Sin alerta en ${context.label}"
         else -> null
     }
-    // dBFS del bloque actual → 0..1 para la amplitud de la onda (−60 dB = mínimo).
-    val level = if (dbfs.isNaN()) 0.5f else ((dbfs + 60f) / 60f).coerceIn(0f, 1f)
+    // dBFS del bloque actual → 0..1 para la amplitud de la onda (−60 dB = mínimo). Sin
+    // medida todavía, la onda del mockup.
+    val level = if (dbfs.isNaN()) 1f else ((dbfs + 60f) / 60f).coerceIn(0f, 1f)
 
+    // Medidas del mockup B: cabecera en y≈32, onda de 74 × 54,7 centrada en el hueco,
+    // "Sonido detectado" en y≈144 y la fila "Posible sirena  94%" en y≈162.
     Column(
-        modifier = Modifier.fillMaxSize().padding(top = 10.mdp, bottom = 18.mdp),
+        modifier = Modifier.fillMaxSize().padding(top = 11.mdp, bottom = 23.8.mdp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Clock()
-        Spacer(Modifier.height(3.mdp))
-        FitText(header, SaText.label.copy(textAlign = TextAlign.Center), SaColors.Muted, Modifier.width(136.mdp))
-        Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 5.mdp), contentAlignment = Alignment.Center) {
+        Spacer(Modifier.height(6.mdp))
+        FitText(header, SaText.labelSmall.copy(textAlign = TextAlign.Center), SaColors.Secondary, Modifier.width(136.mdp))
+        Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 3.mdp), contentAlignment = Alignment.Center) {
             Waveform(level, scale)
         }
         Column(Modifier.semantics(mergeDescendants = true) {}, horizontalAlignment = Alignment.CenterHorizontally) {
             FitText("Sonido detectado", SaText.title, SaColors.OnSurface, Modifier.width(156.mdp))
+            Spacer(Modifier.height(2.mdp))
             Row(Modifier.width(132.mdp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                FitText(
-                    SoundUi.possible(detection.category),
-                    SaText.body,
-                    SaColors.Secondary,
-                    Modifier.weight(1f, fill = false),
-                    maxLines = 2,
-                    minSize = 10.sp,
-                    preferOneLine = true,
-                )
-                Spacer(Modifier.width(5.mdp))
+                FitText(SoundUi.possible(detection.category), SaText.body, SaColors.Secondary, Modifier.weight(1f, fill = false), maxLines = 2)
+                Spacer(Modifier.width(4.5.mdp))
+                // Píldora de 19 × 11,3 en el mockup.
                 Text(
                     String.format(Locale.US, "%d%%", (detection.confidence * 100).roundToInt()),
-                    style = SaText.label.copy(letterSpacing = SaText.time.letterSpacing),
+                    style = SaText.labelSmall,
                     color = SaColors.OnSurface,
                     maxLines = 1,
-                    modifier = Modifier.clip(RoundedCornerShape(50)).background(SaColors.Track).padding(horizontal = 5.mdp, vertical = 1.5.mdp),
+                    modifier = Modifier.clip(RoundedCornerShape(50)).background(SaColors.Track).padding(horizontal = 3.2.mdp, vertical = 1.4.mdp),
                 )
             }
-            if (note != null) FitText(note, SaText.body, SaColors.Muted, Modifier.width(116.mdp), minSize = 9.sp)
+            if (note != null) FitText(note, SaText.body, SaColors.Muted, Modifier.width(116.mdp))
         }
     }
 }

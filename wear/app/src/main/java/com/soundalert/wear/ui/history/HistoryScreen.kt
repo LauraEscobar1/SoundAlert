@@ -8,12 +8,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -22,9 +22,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.material3.Text
@@ -83,12 +81,14 @@ fun HistoryScreen(visible: Boolean) {
             ListRow(
                 spec = spec,
                 container = SaColors.Surface,
-                height = 42.dp,
+                start = 4.2.dp,
+                end = 8.4.dp,
                 modifier = Modifier.clearAndSetSemantics { contentDescription = describe(entry, historyTime(entry.atMs, now, is24Hour)) },
             ) {
                 val badge = entry.priority?.color ?: SaColors.Inactive
-                SoundBadge(entry.category, badge, 24.dp, iconTint = if (entry.priority != null) SaColors.Background else SaColors.OnSurface)
-                Spacer(Modifier.width(8.dp))
+                // Mockup: círculo de 18,6 y texto a 6,8; la hora a la derecha.
+                SoundBadge(entry.category, badge, 18.6.dp, iconTint = if (entry.priority != null) SaColors.Background else SaColors.OnSurface)
+                Spacer(Modifier.width(6.8.dp))
                 Column(Modifier.weight(1f)) {
                     NameAndTime(name(entry), historyTime(entry.atMs, now, is24Hour))
                     FitText(
@@ -96,7 +96,6 @@ fun HistoryScreen(visible: Boolean) {
                         SaText.body.copy(fontSize = SaText.body.fontSize * 0.85f, textAlign = TextAlign.Start),
                         SaColors.Secondary,
                         Modifier.fillMaxWidth(),
-                        minSize = 8.5.sp,
                     )
                 }
             }
@@ -106,15 +105,15 @@ fun HistoryScreen(visible: Boolean) {
 }
 
 /**
- * Nombre y hora en una línea, como en el mockup, si el nombre cabe entero (reduciéndose
- * hasta 11 sp como mucho). Si no cabe (p. ej. con la letra grande), la hora baja a su
+ * Nombre y hora en una línea, como en el mockup, si el nombre cabe entero (como mucho
+ * al 90 % de su tamaño). Si no cabe (p. ej. con la letra grande), la hora baja a su
  * propia línea en vez de cortar el nombre.
  */
 @Composable
 private fun NameAndTime(name: String, time: String) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val measurer = rememberTextMeasurer()
-        val gap = 6.dp
+        val gap = 4.dp
         val timeWidth = measurer.measure(time, SaText.time, maxLines = 1).size.width
         val nameMinWidth = measurer.measure(name, SaText.row.copy(fontSize = NAME_MIN_SIZE), maxLines = 1).size.width
         val oneLine = nameMinWidth + timeWidth + with(LocalDensity.current) { gap.roundToPx() } <= constraints.maxWidth
@@ -133,7 +132,7 @@ private fun NameAndTime(name: String, time: String) {
     }
 }
 
-private val NAME_MIN_SIZE = 11.sp
+private val NAME_MIN_SIZE = SaText.row.fontSize * 0.9f
 
 private fun name(entry: HistoryEntry): String =
     if (entry.category != SoundCategory.UNKNOWN) SoundUi.shortName(entry.category) else entry.remoteName ?: SoundUi.shortName(entry.category)
