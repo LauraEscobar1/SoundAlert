@@ -9,6 +9,8 @@ import androidx.compose.animation.core.withInfiniteAnimationFrameNanos
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
@@ -54,28 +56,15 @@ enum class CoreMode { LISTENING, ANALYZING, PAUSED }
  * da saltos) y los valores solo se leen al dibujar: no hay recomposición por fotograma.
  */
 @Composable
-fun JarvisCore(mode: CoreMode, modifier: Modifier = Modifier, level: Float? = null) {
+fun JarvisCore(mode: CoreMode, modifier: Modifier = Modifier, motion: JarvisMotion = rememberJarvisMotion(mode, level = null)) {
     val ambient = LocalAmbient.current
-    val animated = !ambient && mode != CoreMode.PAUSED
-    val analyzing by animateFloatAsState(if (mode == CoreMode.ANALYZING) 1f else 0f, tween(900, easing = FastOutSlowInEasing), label = "análisis")
-    val mic by animateFloatAsState(level?.coerceIn(0f, 1f) ?: 0f, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow), label = "nivel")
-    val hasLevel = level != null
-    val clock = remember { JarvisClock() }
-    val speed by rememberUpdatedState(analyzing)
-    LaunchedEffect(animated) {
-        if (!animated) return@LaunchedEffect
-        var last = withInfiniteAnimationFrameNanos { it }
-        while (true) {
-            val now = withInfiniteAnimationFrameNanos { it }
-            clock.advance((now - last) / 1_000_000_000f, speed)
-            last = now
-        }
-    }
+    val animated = motion.animated
+    val clock = motion.clock
     val colors = if (ambient) JarvisColors.Ambient else JarvisColors.Day
     Canvas(modifier) {
         clock.frame // se lee aquí: cada fotograma vuelve a dibujar sin recomponer
         val u = size.minDimension / VIEWBOX
-        val a = analyzing
+        val a = motion.analyzing
         drawTicks(colors, u)
         if (!ambient) rotate(clock.thinArc) { drawThinArc(u) }
         rotate(clock.arc) {
@@ -85,22 +74,71 @@ fun JarvisCore(mode: CoreMode, modifier: Modifier = Modifier, level: Float? = nu
         }
         rotate(clock.inner) { drawInnerRing(colors, u, secondDot = a) }
         if (!ambient) drawParticles(clock, u, a)
-        if (!ambient && a < 1f) drawHalo(if (animated) 0.5f - 0.5f * cos(clock.halo) else 0f, u, alpha = 1f - a)
+        if (!ambient && a < 1f) drawHalo(if (animated) motion.haloPulse else 0f, u, alpha = 1f - a)
         if (a < 1f) drawCore(colors, u, alpha = 1f - a)
         if (a > 0f) drawAnalyzingCore(colors, u, alpha = a)
-        val micMix = if (hasLevel && animated) mic else -1f
+        val micMix = if (motion.hasLevel && animated) motion.mic else -1f
         if (a < 1f) drawBars(colors, u, LISTENING_BARS, clock.bars, animated, micMix, alpha = 1f - a)
         if (a > 0f) drawBars(colors, u, ANALYZING_BARS, clock.bars * 2f, animated, micMix, alpha = a)
     }
 }
 
 /**
- * Ángulos y fases de cada capa, integrados fotograma a fotograma. [frame] es lo único
- * observable: sube en cada fotograma para que el Canvas se vuelva a dibujar.
+ * Movimiento compartido del Jarvis y de lo que lo acompaña (ondas, medidor del borde,
+ * texto de estado): un único reloj de fotogramas, el progreso hacia ANALYZING (0 → 1 en
+ * 0,9 s, FastOutSlowIn) y el nivel del micrófono suavizado con un resorte. Los valores se
+ * leen al dibujar ([clock].frame cambia en cada fotograma).
  */
-private class JarvisClock {
+@Stable
+class JarvisMotion internal constructor(
+    val clock: JarvisClock,
+    private val analyzingState: State<Float>,
+    private val micState: State<Float>,
+    val animated: Boolean,
+    val hasLevel: Boolean,
+) {
+    /** 0 escuchando → 1 analizando, con transición suave. */
+    val analyzing: Float get() = analyzingState.value
+
+    /** Nivel del micrófono suavizado (0–1); 0 si no hay nivel. */
+    val mic: Float get() = micState.value
+
+    /** Pulso del halo (0 → 1 → 0 cada 4,8 s): lo siguen también los puntos de "Escuchando". */
+    val haloPulse: Float get() = 0.5f - 0.5f * cos(clock.halo)
+}
+
+/** Movimiento del Jarvis para [mode]; quieto en pausa y en modo ambiente. [level]: nivel del micrófono (0–1) o null. */
+@Composable
+fun rememberJarvisMotion(mode: CoreMode, level: Float?): JarvisMotion {
+    val ambient = LocalAmbient.current
+    val animated = !ambient && mode != CoreMode.PAUSED
+    val analyzing = animateFloatAsState(if (mode == CoreMode.ANALYZING) 1f else 0f, tween(900, easing = FastOutSlowInEasing), label = "análisis")
+    val mic = animateFloatAsState(level?.coerceIn(0f, 1f) ?: 0f, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow), label = "nivel")
+    val clock = remember { JarvisClock() }
+    val speed by rememberUpdatedState(analyzing.value)
+    LaunchedEffect(animated) {
+        if (!animated) return@LaunchedEffect
+        var last = withInfiniteAnimationFrameNanos { it }
+        while (true) {
+            val now = withInfiniteAnimationFrameNanos { it }
+            clock.advance((now - last) / 1_000_000_000f, speed)
+            last = now
+        }
+    }
+    return remember(clock, analyzing, mic, animated, level != null) { JarvisMotion(clock, analyzing, mic, animated, level != null) }
+}
+
+/**
+ * Ángulos y fases de cada capa, integrados fotograma a fotograma. [frame] es lo único
+ * observable: sube en cada fotograma para que el Canvas se vuelva a dibujar. [time]
+ * avanza más deprisa al analizar; [seconds], siempre a ritmo real.
+ */
+class JarvisClock {
     private val tick = mutableLongStateOf(0)
     val frame: Long get() = tick.longValue
+
+    /** Segundos reales desde el inicio (sin acelerar). */
+    var seconds = 0f; private set
     var arc = 0f; private set
     var thinArc = 0f; private set
     var inner = 0f; private set
@@ -120,6 +158,7 @@ private class JarvisClock {
         // Barras: 1,1 s de subida y 1,1 de bajada al escuchar (el doble de rápido al analizar).
         bars = (bars + dt * TWO_PI / lerp(2.2f, 1.1f)) % (TWO_PI * 1000f)
         time += dt * lerp(1f, 2.6f)
+        seconds += dt
         tick.longValue++
     }
 }

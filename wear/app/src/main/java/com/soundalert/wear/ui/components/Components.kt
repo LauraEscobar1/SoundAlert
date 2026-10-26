@@ -147,7 +147,7 @@ fun PriorityBars(priority: Priority, scale: WatchScale, modifier: Modifier = Mod
 }
 
 /**
- * Botón del contexto activo ("⌂ CASA"): una píldora pequeña de vidrio (10 de alto) con el
+ * Botón del contexto activo ("⌂ CASA"): una píldora pequeña de vidrio (9,5 de alto) con el
  * icono y el nombre en vino. Al tocarlo se abre la pantalla de contexto; su zona de toque
  * mide al menos 48 × 48 dp aunque la píldora se vea más pequeña.
  */
@@ -163,7 +163,7 @@ fun ContextChip(context: SoundAlertContext, onClick: (() -> Unit)?, scale: Watch
     ) {
         Row(
             Modifier
-                .height(10.mdp)
+                .height(9.5.mdp)
                 .glass()
                 .padding(start = 5.mdp, end = 5.5.mdp),
             verticalAlignment = Alignment.CenterVertically,

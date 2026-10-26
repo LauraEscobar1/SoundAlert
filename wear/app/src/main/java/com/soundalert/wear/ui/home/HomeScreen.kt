@@ -1,10 +1,18 @@
 package com.soundalert.wear.ui.home
 
+import com.soundalert.wear.ui.components.rememberJarvisMotion
+import androidx.compose.foundation.Canvas
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.AnimatedContent
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -132,13 +140,14 @@ fun AnalyzingContent(detection: DetectionDisplay, note: String? = null) =
 
 /**
  * A y B comparten pantalla y emblema: al detectar algo, el Jarvis acelera de forma
- * progresiva y los textos se funden. Cuatro elementos repartidos en el alto con huecos
- * iguales (≈ 6 dp entre sus bordes visibles) y todo dentro del margen de seguridad
- * (centros sobre 192):
- *  - A: hora (y≈23,6), botón del contexto (37,4), Jarvis de 108 dp (56 % del ancho,
- *    centro 100,6) y "Escuchando" (163).
+ * progresiva, las ondas y el medidor del borde también, y los textos cambian con un
+ * fundido y un leve deslizamiento hacia arriba. Centros sobre 192, todo dentro del margen
+ * de seguridad:
+ *  - A: hora (y≈23,6), botón del contexto (32,8), Jarvis de 119 dp (62 % del ancho,
+ *    centro 96,2) y "Escuchando" con su onda, su brillo y sus tres puntos (159,5).
  *  - B: "IA · ANALIZANDO", "Sonido detectado", el mismo Jarvis y el chip del sonido con su
  *    confianza, en esas mismas alturas.
+ * Detrás, las ondas que salen del Jarvis y el medidor circular del borde.
  */
 @Composable
 fun HomeContent(
@@ -159,9 +168,18 @@ fun HomeContent(
         ui.listening -> CoreMode.LISTENING
         else -> CoreMode.PAUSED
     }
+    val motion = rememberJarvisMotion(mode, level)
     WatchScreen(background = if (ambient) SaColors.AmbientBackground else SaColors.Background) { scale ->
         with(scale) {
-            JarvisCore(mode, Modifier.centerAt(EMBLEM_Y.mdp).size(EMBLEM.mdp), level = level)
+            if (!ambient) {
+                Canvas(Modifier.fillMaxSize()) {
+                    motion.clock.frame
+                    val u = size.minDimension / 192f
+                    drawEdgeMeter(motion, u, live = motion.animated)
+                    if (motion.animated) drawListeningWaves(motion, u, centerY = EMBLEM_Y, fromRadius = EMBLEM * 0.965f / 2)
+                }
+            }
+            JarvisCore(mode, Modifier.centerAt(EMBLEM_Y.mdp).size(EMBLEM.mdp), motion)
             // Zona táctil del emblema: su núcleo (64 dp), para no pisar la del botón del contexto.
             Box(
                 Modifier
@@ -176,7 +194,14 @@ fun HomeContent(
                     )
                     .semantics { contentDescription = if (ui.running) "Escuchando. Toca para pausar" else "En pausa. Toca para escuchar" },
             )
-            Crossfade(analyzing, animationSpec = tween(450), label = "textos") { showDetection ->
+            AnimatedContent(
+                analyzing,
+                transitionSpec = {
+                    (fadeIn(tween(420, delayMillis = 90)) + slideInVertically(tween(420, easing = FastOutSlowInEasing)) { it / 24 }) togetherWith
+                        (fadeOut(tween(250)) + slideOutVertically(tween(420, easing = FastOutSlowInEasing)) { -it / 24 })
+                },
+                label = "textos",
+            ) { showDetection ->
                 Box(Modifier.fillMaxSize()) {
                     if (showDetection && detection != null) {
                         Text(
@@ -213,7 +238,12 @@ fun HomeContent(
                         } else {
                             ContextChip(context, onOpenContext, scale, Modifier.centerAt(SECOND_Y.mdp))
                         }
-                        FitText(ui.title, SaText.title.copy(fontSize = 12.5.sp, lineHeight = 13.5.sp), ink, Modifier.centerAt(BOTTOM_Y.mdp).width(90.mdp))
+                        val titleStyle = SaText.title.copy(fontSize = 12.sp, lineHeight = 13.sp)
+                        if (ui.listening && !ambient) {
+                            LivelyTitle(ui.title, titleStyle, motion, live = motion.animated, scale = scale, modifier = Modifier.centerAt(BOTTOM_Y.mdp))
+                        } else {
+                            FitText(ui.title, titleStyle, ink, Modifier.centerAt(BOTTOM_Y.mdp).width(90.mdp))
+                        }
                     }
                 }
             }
@@ -221,12 +251,16 @@ fun HomeContent(
     }
 }
 
-/** Alturas (centros sobre 192) de la hora, el segundo elemento y el texto de abajo. */
+/**
+ * Alturas (centros sobre 192) de la hora, el segundo elemento y el texto de abajo: entre
+ * los bordes visibles de cada elemento quedan ≈ 1,5 dp, lo que permite el Jarvis al 62 %
+ * dentro del margen de seguridad.
+ */
 private const val TOP_Y = 23.6f
-private const val SECOND_Y = 37.4f
-private const val BOTTOM_Y = 163f
+private const val SECOND_Y = 32.8f
+private const val BOTTOM_Y = 159.5f
 
-/** Emblema Jarvis: 108 sobre 192 (≈ 56 % del ancho), centrado en y = 100,6; su núcleo tocable mide 64. */
-private const val EMBLEM = 108f
-private const val EMBLEM_Y = 100.6f
+/** Emblema Jarvis: 119 sobre 192 (≈ 62 % del ancho), centrado en y = 96,2; su núcleo tocable mide 64. */
+private const val EMBLEM = 119f
+private const val EMBLEM_Y = 96.2f
 private const val EMBLEM_TOUCH = 64f
