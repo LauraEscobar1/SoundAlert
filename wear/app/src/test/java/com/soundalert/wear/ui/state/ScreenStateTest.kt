@@ -17,7 +17,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
-import java.time.ZoneOffset
 
 class ScreenStateTest {
 
@@ -122,12 +121,8 @@ class ScreenStateTest {
     // ---------- Formatos de hora ----------
 
     @Test
-    fun `hora del historial - formato 12 o 24 h del reloj hoy, dia y mes otro dia`() {
+    fun `tiempo relativo de las alertas`() {
         val today = Instant.parse("2026-10-07T18:30:00Z").toEpochMilli()
-        assertEquals("16:12", historyTime(Instant.parse("2026-10-07T16:12:00Z").toEpochMilli(), today, is24Hour = true, zone = ZoneOffset.UTC))
-        assertEquals("4:12 PM", historyTime(Instant.parse("2026-10-07T16:12:00Z").toEpochMilli(), today, is24Hour = false, zone = ZoneOffset.UTC))
-        assertEquals("06/10", historyTime(Instant.parse("2026-10-06T23:59:00Z").toEpochMilli(), today, is24Hour = true, zone = ZoneOffset.UTC))
-        assertTrue(isToday(Instant.parse("2026-10-07T00:00:00Z").toEpochMilli(), today, ZoneOffset.UTC))
         assertEquals("ahora", relativeTime(today - 30_000, today))
         assertEquals("hace 2 min", relativeTime(today - 150_000, today))
         assertEquals("ahora", relativeTimeSeconds(today - 400, today))

@@ -10,9 +10,6 @@ import com.soundalert.wear.detection.DetectionEvent
 import com.soundalert.wear.pipeline.PipelineStatus
 import com.soundalert.wear.rules.Priority
 import com.soundalert.wear.rules.RuleEngine
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 /*
  * Lógica de presentación: decide QUÉ muestra cada pantalla a partir del estado real
@@ -106,16 +103,6 @@ fun watchedSummary(context: SoundAlertContext, rules: RuleEngine, name: (SoundCa
     return ordered.map(name).distinct().take(max)
 }
 
-/** Hora si es de hoy ("10:12", o "4:15 PM" con el reloj en 12 h); "03/10" si es de otro día. */
-fun historyTime(atMs: Long, nowMs: Long, is24Hour: Boolean, zone: ZoneId = ZoneId.systemDefault()): String {
-    val at = Instant.ofEpochMilli(atMs).atZone(zone)
-    val today = Instant.ofEpochMilli(nowMs).atZone(zone).toLocalDate()
-    return at.format(if (at.toLocalDate() != today) DAY else if (is24Hour) HOUR_24 else HOUR_12)
-}
-
-fun isToday(atMs: Long, nowMs: Long, zone: ZoneId = ZoneId.systemDefault()): Boolean =
-    Instant.ofEpochMilli(atMs).atZone(zone).toLocalDate() == Instant.ofEpochMilli(nowMs).atZone(zone).toLocalDate()
-
 /** "ahora" durante el primer minuto; después "hace N min". */
 fun relativeTime(atMs: Long, nowMs: Long): String {
     val minutes = (nowMs - atMs) / 60_000
@@ -131,7 +118,3 @@ fun relativeTimeSeconds(atMs: Long, nowMs: Long): String {
         else -> relativeTime(atMs, nowMs)
     }
 }
-
-private val HOUR_24 = DateTimeFormatter.ofPattern("HH:mm")
-private val HOUR_12 = DateTimeFormatter.ofPattern("h:mm a", java.util.Locale.US)
-private val DAY = DateTimeFormatter.ofPattern("dd/MM")

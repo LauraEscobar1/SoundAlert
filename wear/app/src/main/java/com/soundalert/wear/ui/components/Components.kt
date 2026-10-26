@@ -65,10 +65,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.Text
-import com.soundalert.wear.classifier.SoundCategory
 import com.soundalert.wear.context.SoundAlertContext
 import com.soundalert.wear.rules.Priority
-import com.soundalert.wear.ui.SoundUi
 import com.soundalert.wear.ui.bars
 import com.soundalert.wear.ui.icon
 import com.soundalert.wear.ui.label
@@ -229,14 +227,6 @@ fun GlassToast(state: ToastState, scale: WatchScale, modifier: Modifier = Modifi
 }
 
 const val TOAST_MS = 1_500L
-
-/** Icono de una categoría en un círculo de color (historial: círculo de 18,6 en el mockup). */
-@Composable
-fun SoundBadge(category: SoundCategory, color: Color, size: Dp, iconTint: Color = Color.Black) {
-    Box(Modifier.size(size).clip(CircleShape).background(color), contentAlignment = Alignment.Center) {
-        GlyphIcon(SoundUi.icon(category), glyphHeight = size * 0.48f, tint = iconTint, maxGlyphWidth = size * 0.6f)
-    }
-}
 
 /**
  * Icono vectorial dimensionado por su DIBUJO y no por su caja de 24 unidades: la

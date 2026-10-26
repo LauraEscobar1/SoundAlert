@@ -46,16 +46,6 @@ object SaColors {
     val AmbientContent = Color(0xFFD9D9D9)
     val AmbientDim = Color(0xFF7A7A7A)
 
-    // Tokens del diseño anterior: se eliminan cuando migre la última pantalla.
-    val Background = Color(0xFF000000)
-    val Surface = Color(0xFF1E1E1E)
-    val SurfaceDim = Color(0xFF151515)
-    val Inactive = Color(0xFF3A3A3A)
-    val Track = Color(0xFF2A2A2A)
-    val ToggleOff = Color(0xFF616161)
-    val OnSurface = Color(0xFFFFFFFF)
-    val Secondary = Color(0xFFA3A3A3)
-    val Muted = Color(0xFF8A8A8A)
 }
 
 /**
@@ -122,9 +112,6 @@ object SaText {
     /** Etiquetas junto a un título ("AUTO", "5 DE 7") y pies ("TOCA PARA ACTIVAR"). */
     val tag = TextStyle(fontFamily = SaFonts.Mono, fontWeight = FontWeight.Bold, fontSize = 6.5.sp, lineHeight = 7.5.sp)
 
-    // Estilos del diseño anterior: se eliminan cuando migre la última pantalla.
-    val clockSmall = TextStyle(fontFamily = SaFonts.SemiBold, fontSize = 8.5.sp, lineHeight = 10.sp)
-    val time = TextStyle(fontFamily = SaFonts.Mono, fontSize = 6.5.sp, lineHeight = 8.sp)
 }
 
 @Composable
