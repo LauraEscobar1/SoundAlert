@@ -127,6 +127,16 @@ fun relativeTime(atMs: Long, nowMs: Long): String {
     return if (minutes < 1) "ahora" else "hace $minutes min"
 }
 
+/** Aviso: "ahora" el primer segundo, "hace 2 s" durante el primer minuto y después "hace N min". */
+fun relativeTimeSeconds(atMs: Long, nowMs: Long): String {
+    val seconds = (nowMs - atMs) / 1_000
+    return when {
+        seconds < 1 -> "ahora"
+        seconds < 60 -> "hace $seconds s"
+        else -> relativeTime(atMs, nowMs)
+    }
+}
+
 private val HOUR_24 = DateTimeFormatter.ofPattern("HH:mm")
 private val HOUR_12 = DateTimeFormatter.ofPattern("h:mm a", java.util.Locale.US)
 private val DAY = DateTimeFormatter.ofPattern("dd/MM")

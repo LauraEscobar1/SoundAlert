@@ -120,5 +120,8 @@ class ScreenStateTest {
         assertTrue(isToday(Instant.parse("2026-10-07T00:00:00Z").toEpochMilli(), today, ZoneOffset.UTC))
         assertEquals("ahora", relativeTime(today - 30_000, today))
         assertEquals("hace 2 min", relativeTime(today - 150_000, today))
+        assertEquals("ahora", relativeTimeSeconds(today - 400, today))
+        assertEquals("hace 2 s", relativeTimeSeconds(today - 2_300, today))
+        assertEquals("hace 2 min", relativeTimeSeconds(today - 150_000, today))
     }
 }
