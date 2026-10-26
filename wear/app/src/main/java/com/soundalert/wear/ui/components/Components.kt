@@ -62,6 +62,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.wear.compose.material3.Icon
@@ -147,13 +148,15 @@ fun PriorityBars(priority: Priority, scale: WatchScale, modifier: Modifier = Mod
 }
 
 /**
- * Botón del contexto activo ("⌂ CASA"): una píldora pequeña de vidrio (9,5 de alto) con el
- * icono y el nombre en vino. Al tocarlo se abre la pantalla de contexto; su zona de toque
- * mide al menos 48 × 48 dp aunque la píldora se vea más pequeña.
+ * Botón del contexto activo del inicio ("⌂ CASA"): una píldora de vidrio (acento al 25 %
+ * con borde blanco al 55 %) de 10 de alto, con el icono de 6 y el nombre en monoespaciada
+ * de 5 sp con espaciado 0,1 em, en vino. Al tocarlo se abre la pantalla de contexto; su
+ * zona de toque mide al menos 48 × 48 dp aunque la píldora se vea más pequeña.
  */
 @Composable
 fun ContextChip(context: SoundAlertContext, onClick: (() -> Unit)?, scale: WatchScale, modifier: Modifier = Modifier) = with(scale) {
     val clickable = if (onClick != null) Modifier.clickable(onClickLabel = "Cambiar contexto", role = Role.Button, onClick = onClick) else Modifier
+    val shape = RoundedCornerShape(50)
     Box(
         modifier
             .defaultMinSize(minWidth = MIN_TOUCH, minHeight = MIN_TOUCH)
@@ -163,17 +166,22 @@ fun ContextChip(context: SoundAlertContext, onClick: (() -> Unit)?, scale: Watch
     ) {
         Row(
             Modifier
-                .height(9.5.mdp)
-                .glass()
-                .padding(start = 5.mdp, end = 5.5.mdp),
+                .height(CONTEXT_CHIP_HEIGHT.mdp)
+                .clip(shape)
+                .background(SaColors.Glass)
+                .border(1.dp, Color.White.copy(alpha = 0.55f), shape)
+                .padding(start = 4.5.mdp, end = 5.mdp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            GlyphIcon(context.icon, glyphHeight = 4.mdp, tint = SaColors.Wine)
-            Spacer(Modifier.width(2.6.mdp))
-            Text(context.label.uppercase(), style = SaText.labelSmall, color = SaColors.Wine, maxLines = 1)
+            GlyphIcon(context.icon, glyphHeight = 6.mdp, tint = SaColors.Wine)
+            Spacer(Modifier.width(2.5.mdp))
+            Text(context.label.uppercase(), style = SaText.labelSmall.copy(fontSize = 5.sp, letterSpacing = 0.1.em), color = SaColors.Wine, maxLines = 1)
         }
     }
 }
+
+/** Alto de la píldora del contexto del inicio (dp sobre 192). */
+const val CONTEXT_CHIP_HEIGHT = 10f
 
 /** Zona de toque mínima de los controles pequeños. */
 val MIN_TOUCH = 48.dp

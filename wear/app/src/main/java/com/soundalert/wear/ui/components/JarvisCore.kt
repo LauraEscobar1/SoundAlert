@@ -1,9 +1,7 @@
 package com.soundalert.wear.ui.components
 
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.withInfiniteAnimationFrameNanos
 import androidx.compose.foundation.Canvas
@@ -19,7 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
@@ -27,93 +24,83 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import com.soundalert.wear.ui.theme.SaColors
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
 
 /** Estado del emblema: escuchando, analizando (más rápido, 9 barras) o en pausa (quieto). */
 enum class CoreMode { LISTENING, ANALYZING, PAUSED }
 
+/** Curva de todas las animaciones del inicio: cubic-bezier(0.45, 0, 0.55, 1). */
+val SmoothEasing = CubicBezierEasing(0.45f, 0f, 0.55f, 1f)
+
 /**
- * Emblema "Jarvis" sobre un viewBox de 200 × 200 centrado en (100, 100). Capas base del SVG
- * del diseño (marcas r 94, arco segmentado r 82 con guiones [90, 26, 18, 26, 60, 295],
- * anillo interior r 70 con su punto, halo r 54, núcleo r 40 y barras) y, encima:
- *  - El arco segmentado gira y respira en grosor (de 4,5 a 6,7 unidades del viewBox cada
- *    3 s: 3 → 4,5 dp en un emblema de 134 dp, escalado con el tamaño), con una estela de
- *    barrido que se desvanece detrás de su segmento más largo.
- *  - Un segundo arco fino y corto (vino al 50 %, r 62) gira al revés a otra velocidad.
- *  - Cuatro partículas orbitan entre el anillo interior y el arco, a distintas
- *    velocidades, con una opacidad que sube y baja.
- *  - El halo pulsa (escala 1 → 1,18, opacidad 0,35 → 0,08, 2,4 s, curva senoidal).
- *  - Las barras siguen el nivel real del micrófono ([level], 0–1, suavizado con un resorte)
- *    sobre una oscilación desfasada; sin nivel, solo la oscilación.
- * Al pasar a ANALYZING todo acelera de forma progresiva (0,9 s, FastOutSlowIn): los
- * anillos pasan a 2,2 s y 3,5 s por vuelta, las 5 barras se funden en 9 más rápidas y el
- * halo y el núcleo dan paso al círculo r 54 con trazo de acento y dos puntos en el anillo.
- * En modo ambiente: estático, sin halo, estela, arco fino ni partículas, en gris.
+ * Emblema "Jarvis" sobre un viewBox de 200 × 200 centrado en (100, 100), capa por capa
+ * según el rediseño del inicio:
+ *  - Marcas: r 94, vino al 28 %, grosor 5, guiones [1,2, 6,2]. Quietas.
+ *  - Arco con estela (r 82, acento, extremos redondeados), todo en un grupo que gira una
+ *    vuelta cada 8 s: cabeza, dos estelas detrás cada vez más finas y tenues, y un
+ *    destello en el lado opuesto.
+ *  - Anillo interior: r 70, vino al 40 %, guiones [2, 5], con un punto en (100, 30). Gira
+ *    al revés, una vuelta cada 16 s.
+ *  - Halo r 56 en acento: escala 1 → 1,12 y opacidad 0,26 → 0,07, 3,2 s, ida y vuelta.
+ *  - Núcleo r 40: vino al 10 % con borde vino al 70 %.
+ *  - 5 barras que laten (scaleY 0,35 → 1, 1,2 s, ida y vuelta) con desfases.
+ * Al analizar, todo pasa de forma progresiva a: arco en 2,6 s con cabeza y estelas más
+ * largas y sin destello, anillo en 4 s con un segundo punto en (100, 170), un círculo r 54
+ * (vino al 8 %, borde de acento) en lugar del halo y el núcleo, y 9 barras en 0,6 s.
+ * En modo ambiente: estático y simplificado (marcas, cabeza del arco, anillo, núcleo y
+ * barras quietas, en gris).
  *
- * Un único reloj de fotogramas integra la velocidad de cada capa (así la aceleración no
- * da saltos) y los valores solo se leen al dibujar: no hay recomposición por fotograma.
+ * Un único reloj de fotogramas integra la velocidad de cada capa (así el cambio de
+ * velocidad no da saltos) y los valores solo se leen al dibujar: no hay recomposición
+ * por fotograma.
  */
 @Composable
-fun JarvisCore(mode: CoreMode, modifier: Modifier = Modifier, motion: JarvisMotion = rememberJarvisMotion(mode, level = null)) {
+fun JarvisCore(mode: CoreMode, modifier: Modifier = Modifier, motion: JarvisMotion = rememberJarvisMotion(mode)) {
     val ambient = LocalAmbient.current
-    val animated = motion.animated
     val clock = motion.clock
-    val colors = if (ambient) JarvisColors.Ambient else JarvisColors.Day
     Canvas(modifier) {
         clock.frame // se lee aquí: cada fotograma vuelve a dibujar sin recomponer
         val u = size.minDimension / VIEWBOX
-        val a = motion.analyzing
-        drawTicks(colors, u)
-        if (!ambient) rotate(clock.thinArc) { drawThinArc(u) }
-        rotate(clock.arc) {
-            if (!ambient) drawTrail(u)
-            val breath = if (animated) 0.5f - 0.5f * cos(clock.breath) else 0f
-            drawSegmentedArc(colors, u, widthPx = (4.48f + 2.24f * breath) * u)
+        if (ambient) {
+            drawAmbient(u)
+            return@Canvas
         }
-        rotate(clock.inner) { drawInnerRing(colors, u, secondDot = a) }
-        if (!ambient) drawParticles(clock, u, a)
-        if (!ambient && a < 1f) drawHalo(if (animated) motion.haloPulse else 0f, u, alpha = 1f - a)
-        if (a < 1f) drawCore(colors, u, alpha = 1f - a)
-        if (a > 0f) drawAnalyzingCore(colors, u, alpha = a)
-        val micMix = if (motion.hasLevel && animated) motion.mic else -1f
-        if (a < 1f) drawBars(colors, u, LISTENING_BARS, clock.bars, animated, micMix, alpha = 1f - a)
-        if (a > 0f) drawBars(colors, u, ANALYZING_BARS, clock.bars * 2f, animated, micMix, alpha = a)
+        val a = motion.analyzing
+        val t = clock.seconds
+        drawTicks(SaColors.Wine.copy(alpha = 0.28f), u)
+        rotate(clock.arc) { drawArcWithTrail(u, a) }
+        rotate(clock.inner) { drawInnerRing(SaColors.Wine.copy(alpha = 0.4f), SaColors.Wine, u, secondDot = a) }
+        if (a < 1f) {
+            val pulse = if (motion.animated) pingPong(t, HALO_HALF) else 0f
+            drawHalo(pulse, u, alpha = 1f - a)
+            drawCore(SaColors.Wine.copy(alpha = 0.1f), SaColors.Wine.copy(alpha = 0.7f), u, alpha = 1f - a)
+        }
+        if (a > 0f) drawAnalyzingCore(u, alpha = a)
+        if (a < 1f) drawBars(SaColors.Wine.copy(alpha = 1f - a), u, LISTENING_BARS, t, LISTENING_BAR_HALF, motion.animated)
+        if (a > 0f) drawBars(SaColors.Wine.copy(alpha = a), u, ANALYZING_BARS, t, ANALYZING_BAR_HALF, motion.animated)
     }
 }
 
 /**
- * Movimiento compartido del Jarvis y de lo que lo acompaña (ondas, medidor del borde,
- * texto de estado): un único reloj de fotogramas, el progreso hacia ANALYZING (0 → 1 en
- * 0,9 s, FastOutSlowIn) y el nivel del micrófono suavizado con un resorte. Los valores se
- * leen al dibujar ([clock].frame cambia en cada fotograma).
+ * Movimiento compartido del Jarvis y de los títulos animados: un único reloj de
+ * fotogramas y el progreso hacia ANALYZING (0 → 1 en 0,9 s con [SmoothEasing]). Los
+ * valores se leen al dibujar ([clock].frame cambia en cada fotograma).
  */
 @Stable
 class JarvisMotion internal constructor(
     val clock: JarvisClock,
     private val analyzingState: State<Float>,
-    private val micState: State<Float>,
     val animated: Boolean,
-    val hasLevel: Boolean,
 ) {
     /** 0 escuchando → 1 analizando, con transición suave. */
     val analyzing: Float get() = analyzingState.value
-
-    /** Nivel del micrófono suavizado (0–1); 0 si no hay nivel. */
-    val mic: Float get() = micState.value
-
-    /** Pulso del halo (0 → 1 → 0 cada 4,8 s): lo siguen también los puntos de "Escuchando". */
-    val haloPulse: Float get() = 0.5f - 0.5f * cos(clock.halo)
 }
 
-/** Movimiento del Jarvis para [mode]; quieto en pausa y en modo ambiente. [level]: nivel del micrófono (0–1) o null. */
+/** Movimiento del Jarvis para [mode]; quieto en pausa y en modo ambiente. */
 @Composable
-fun rememberJarvisMotion(mode: CoreMode, level: Float?): JarvisMotion {
+fun rememberJarvisMotion(mode: CoreMode): JarvisMotion {
     val ambient = LocalAmbient.current
     val animated = !ambient && mode != CoreMode.PAUSED
-    val analyzing = animateFloatAsState(if (mode == CoreMode.ANALYZING) 1f else 0f, tween(900, easing = FastOutSlowInEasing), label = "análisis")
-    val mic = animateFloatAsState(level?.coerceIn(0f, 1f) ?: 0f, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow), label = "nivel")
+    val analyzing = animateFloatAsState(if (mode == CoreMode.ANALYZING) 1f else 0f, tween(TRANSITION_MS, easing = SmoothEasing), label = "análisis")
     val clock = remember { JarvisClock() }
     val speed by rememberUpdatedState(analyzing.value)
     LaunchedEffect(animated) {
@@ -125,195 +112,157 @@ fun rememberJarvisMotion(mode: CoreMode, level: Float?): JarvisMotion {
             last = now
         }
     }
-    return remember(clock, analyzing, mic, animated, level != null) { JarvisMotion(clock, analyzing, mic, animated, level != null) }
+    return remember(clock, analyzing, animated) { JarvisMotion(clock, analyzing, animated) }
 }
 
+/** Duración del paso escuchando ↔ analizando (velocidades, capas y tamaño del emblema). */
+const val TRANSITION_MS = 900
+
 /**
- * Ángulos y fases de cada capa, integrados fotograma a fotograma. [frame] es lo único
- * observable: sube en cada fotograma para que el Canvas se vuelva a dibujar. [time]
- * avanza más deprisa al analizar; [seconds], siempre a ritmo real.
+ * Ángulos de las capas que giran, integrados fotograma a fotograma. [frame] es lo único
+ * observable: sube en cada fotograma para que el Canvas se vuelva a dibujar. [seconds]
+ * avanza a ritmo real (latidos de halo, barras y letras).
  */
 class JarvisClock {
     private val tick = mutableLongStateOf(0)
     val frame: Long get() = tick.longValue
 
-    /** Segundos reales desde el inicio (sin acelerar). */
     var seconds = 0f; private set
     var arc = 0f; private set
-    var thinArc = 0f; private set
     var inner = 0f; private set
-    var breath = 0f; private set
-    var halo = 0f; private set
-    var bars = 0f; private set
-    var time = 0f; private set
 
     /** [analyzing] 0 → 1: la velocidad de cada capa se interpola entre escucha y análisis. */
     fun advance(dt: Float, analyzing: Float) {
-        fun lerp(a: Float, b: Float) = a + (b - a) * analyzing
-        arc = (arc + dt * lerp(360f / 9f, 360f / 2.2f)) % 360f
-        thinArc = (thinArc - dt * lerp(360f / 6f, 360f / 1.8f)) % 360f
-        inner = (inner - dt * lerp(360f / 14f, 360f / 3.5f)) % 360f
-        breath = (breath + dt * TWO_PI / 3f) % TWO_PI
-        halo = (halo + dt * TWO_PI / 4.8f) % TWO_PI // 2,4 s de ida y 2,4 de vuelta
-        // Barras: 1,1 s de subida y 1,1 de bajada al escuchar (el doble de rápido al analizar).
-        bars = (bars + dt * TWO_PI / lerp(2.2f, 1.1f)) % (TWO_PI * 1000f)
-        time += dt * lerp(1f, 2.6f)
+        arc = (arc + dt * 360f / lerp(ARC_LISTENING_S, ARC_ANALYZING_S, analyzing)) % 360f
+        inner = (inner - dt * 360f / lerp(RING_LISTENING_S, RING_ANALYZING_S, analyzing)) % 360f
         seconds += dt
         tick.longValue++
     }
 }
 
-private class JarvisColors(
-    val ticks: Color,
-    val arc: Color,
-    val ring: Color,
-    val dot: Color,
-    val coreFill: Color,
-    val coreBorder: Color,
-    val analyzingFill: Color,
-    val analyzingBorder: Color,
-    val bars: Color,
-) {
-    companion object {
-        val Day = JarvisColors(
-            ticks = SaColors.Wine.copy(alpha = 0.35f),
-            arc = SaColors.Accent,
-            ring = SaColors.Wine.copy(alpha = 0.55f),
-            dot = SaColors.Wine,
-            coreFill = SaColors.Wine.copy(alpha = 0.12f),
-            coreBorder = SaColors.Wine.copy(alpha = 0.8f),
-            analyzingFill = SaColors.Wine.copy(alpha = 0.08f),
-            analyzingBorder = SaColors.Accent,
-            bars = SaColors.Wine,
-        )
-        val Ambient = JarvisColors(
-            ticks = SaColors.AmbientDim,
-            arc = SaColors.AmbientDim,
-            ring = SaColors.AmbientDim,
-            dot = SaColors.AmbientContent,
-            coreFill = Color.Transparent,
-            coreBorder = SaColors.AmbientDim,
-            analyzingFill = Color.Transparent,
-            analyzingBorder = SaColors.AmbientDim,
-            bars = SaColors.AmbientContent,
-        )
-    }
+/** Segundos por vuelta del arco y del anillo interior, al escuchar y al analizar. */
+internal const val ARC_LISTENING_S = 8f
+internal const val ARC_ANALYZING_S = 2.6f
+internal const val RING_LISTENING_S = 16f
+internal const val RING_ANALYZING_S = 4f
+
+/**
+ * Ida y vuelta con [SmoothEasing]: 0 → 1 en [half] segundos y de nuevo a 0 en otros
+ * [half] (como `animation-direction: alternate`).
+ */
+fun pingPong(seconds: Float, half: Float): Float {
+    val cycle = ((seconds / half) % 2f + 2f) % 2f
+    return SmoothEasing.transform(if (cycle < 1f) cycle else 2f - cycle)
 }
 
-/** Barra del SVG: centro en x, alto máximo y desfase (s, negativo: ya empezada). */
-private class Bar(val x: Float, val height: Float, val delay: Float)
+internal fun lerp(from: Float, to: Float, fraction: Float) = from + (to - from) * fraction
 
-private val LISTENING_BARS = listOf(Bar(84f, 18f, -0.4f), Bar(92f, 30f, -0.2f), Bar(100f, 40f, 0f), Bar(108f, 30f, -0.6f), Bar(116f, 18f, -0.8f))
+/**
+ * Un trazo del arco: guion y hueco (sumen la circunferencia, 2π·82 ≈ 515,2), desfase del
+ * guion (como stroke-dashoffset), grosor y opacidad.
+ */
+internal data class ArcStroke(val dash: Float, val gap: Float, val offset: Float, val width: Float, val alpha: Float)
 
-/** Analizando: x = 68…132 cada 8, con los desfases repartidos en los 0,55 s. */
-private val ANALYZING_BARS = listOf(12f, 24f, 36f, 48f, 56f, 44f, 30f, 20f, 12f)
-    .mapIndexed { i, h -> Bar(68f + 8f * i, h, -0.55f * i / 9f) }
+/** Cabeza, estelas y destello del arco para [analyzing] 0 (escuchando) → 1 (analizando). */
+internal fun arcStrokes(analyzing: Float): List<ArcStroke> {
+    fun stroke(dash: Pair<Float, Float>, offset: Pair<Float, Float>, width: Pair<Float, Float>, alpha: Float): ArcStroke {
+        val d = lerp(dash.first, dash.second, analyzing)
+        return ArcStroke(d, ARC_LENGTH - d, lerp(offset.first, offset.second, analyzing), lerp(width.first, width.second, analyzing), alpha)
+    }
+    return listOf(
+        stroke(70f to 110f, 0f to 0f, 3.5f to 4f, alpha = 1f), // cabeza
+        stroke(40f to 50f, 44f to 54f, 3f to 3f, alpha = 0.45f), // estela 1
+        stroke(30f to 40f, 78f to 98f, 2.5f to 2.5f, alpha = 0.18f), // estela 2
+        stroke(14f to 14f, -250f to -250f, 2f to 2f, alpha = 0.6f * (1f - analyzing)), // destello opuesto
+    )
+}
+
+/** Circunferencia del arco (r 82) en unidades del viewBox. */
+internal const val ARC_LENGTH = 515.2f
+
+/** Barra del SVG: x de su lado izquierdo, alto máximo y desfase (s, negativo: ya empezada). */
+internal class Bar(val x: Float, val height: Float, val delay: Float)
+
+internal val LISTENING_BARS = listOf(
+    Bar(82f, 18f, -0.5f),
+    Bar(90f, 30f, -0.25f),
+    Bar(98f, 40f, 0f),
+    Bar(106f, 30f, -0.75f),
+    Bar(114f, 18f, -1f),
+)
+
+/** Analizando: x = 66…130 cada 8, con desfases repartidos por todo el ciclo. */
+internal val ANALYZING_BARS = listOf(12f, 24f, 36f, 48f, 56f, 44f, 30f, 20f, 12f)
+    .zip(listOf(-0.2f, -0.5f, -0.1f, -0.7f, -0.35f, -0.9f, -0.05f, -0.6f, -0.25f))
+    .mapIndexed { i, (h, delay) -> Bar(66f + 8f * i, h, delay) }
+
+/** Medio ciclo (s) del latido de barras y halo. */
+private const val LISTENING_BAR_HALF = 1.2f
+private const val ANALYZING_BAR_HALF = 0.6f
+private const val HALO_HALF = 3.2f
 
 private const val BAR_MIN = 0.35f
 private const val VIEWBOX = 200f
-private const val TWO_PI = (2 * PI).toFloat()
 
-private fun DrawScope.drawTicks(colors: JarvisColors, u: Float) {
-    val ticks = 80
-    for (i in 0 until ticks) {
-        val deg = i * 360f / ticks
-        val rad = Math.toRadians((deg - 90f).toDouble())
-        val c = cos(rad).toFloat()
-        val s = sin(rad).toFloat()
-        drawLine(
-            colors.ticks,
-            Offset(center.x + 91.5f * u * c, center.y + 91.5f * u * s),
-            Offset(center.x + 96.5f * u * c, center.y + 96.5f * u * s),
-            strokeWidth = 1.2f * u,
-        )
-    }
+private fun DrawScope.drawTicks(color: Color, u: Float) {
+    drawCircle(color, radius = 94f * u, style = Stroke(width = 5f * u, pathEffect = PathEffect.dashPathEffect(floatArrayOf(1.2f * u, 6.2f * u))))
 }
 
-private fun DrawScope.drawSegmentedArc(colors: JarvisColors, u: Float, widthPx: Float) {
-    val pattern = floatArrayOf(90f, 26f, 18f, 26f, 60f, 295f).map { it * u }.toFloatArray()
-    drawCircle(colors.arc, radius = 82f * u, style = Stroke(width = widthPx, cap = StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(pattern)))
-}
-
-/**
- * Estela del segmento largo: el guion de 90 empieza en 0° y avanza en el sentido de giro,
- * así que la estela ocupa los 70° anteriores con un barrido que se desvanece hacia atrás.
- */
-private fun DrawScope.drawTrail(u: Float) {
-    val r = 82f * u
-    val brush = Brush.sweepGradient(
-        0f to Color.Transparent,
-        (290f / 360f) to Color.Transparent,
-        1f to SaColors.Accent.copy(alpha = 0.45f),
-        center = center,
+private fun DrawScope.drawArcStroke(stroke: ArcStroke, color: Color, u: Float) {
+    if (stroke.alpha <= 0f) return
+    drawCircle(
+        color.copy(alpha = color.alpha * stroke.alpha),
+        radius = 82f * u,
+        style = Stroke(
+            width = stroke.width * u,
+            cap = StrokeCap.Round,
+            pathEffect = PathEffect.dashPathEffect(floatArrayOf(stroke.dash * u, stroke.gap * u), stroke.offset * u),
+        ),
     )
-    drawArc(brush, startAngle = -70f, sweepAngle = 70f, useCenter = false, topLeft = Offset(center.x - r, center.y - r), size = Size(r * 2, r * 2), style = Stroke(width = 7f * u))
 }
 
-/** Segundo arco: fino, corto (≈ 40°) y en vino al 50 %, en r 62. */
-private fun DrawScope.drawThinArc(u: Float) {
-    val r = 62f * u
-    drawArc(SaColors.Wine.copy(alpha = 0.5f), startAngle = 0f, sweepAngle = 40f, useCenter = false, topLeft = Offset(center.x - r, center.y - r), size = Size(r * 2, r * 2), style = Stroke(width = 1.4f * u, cap = StrokeCap.Round))
+private fun DrawScope.drawArcWithTrail(u: Float, analyzing: Float) {
+    arcStrokes(analyzing).forEach { drawArcStroke(it, SaColors.Accent, u) }
 }
 
-private fun DrawScope.drawInnerRing(colors: JarvisColors, u: Float, secondDot: Float) {
-    drawCircle(colors.ring, radius = 70f * u, style = Stroke(width = 1.5f * u, pathEffect = PathEffect.dashPathEffect(floatArrayOf(3f * u, 5f * u))))
+private fun DrawScope.drawInnerRing(ring: Color, dot: Color, u: Float, secondDot: Float) {
+    drawCircle(ring, radius = 70f * u, style = Stroke(width = 1.2f * u, pathEffect = PathEffect.dashPathEffect(floatArrayOf(2f * u, 5f * u))))
     // Punto en (100, 30); al analizar aparece otro en (100, 170).
-    drawCircle(colors.dot, radius = 3f * u, center = Offset(center.x, center.y - 70f * u))
-    if (secondDot > 0f) drawCircle(colors.dot.copy(alpha = colors.dot.alpha * secondDot), radius = 3f * u, center = Offset(center.x, center.y + 70f * u))
-}
-
-/** Radio (viewBox), velocidad (°/s al escuchar) y desfase (rad) de cada partícula. */
-private val PARTICLES = listOf(
-    Triple(74f, 38f, 0f),
-    Triple(77f, -52f, 1.7f),
-    Triple(79.5f, 27f, 3.1f),
-    Triple(75.5f, -33f, 4.6f),
-)
-
-private fun DrawScope.drawParticles(clock: JarvisClock, u: Float, analyzing: Float) {
-    PARTICLES.forEachIndexed { i, (radius, speed, phase) ->
-        val deg = (clock.time * speed + phase * 57.3f) % 360f
-        val rad = Math.toRadians(deg.toDouble())
-        val alpha = 0.25f + 0.65f * (0.5f + 0.5f * sin(clock.time * (1.3f + 0.4f * i) + phase))
-        val color = if (i % 2 == 0) SaColors.Accent else SaColors.Wine
-        drawCircle(
-            color.copy(alpha = alpha),
-            radius = (1.6f + 0.5f * (i % 2) + 0.4f * analyzing) * u,
-            center = Offset(center.x + radius * u * cos(rad).toFloat(), center.y + radius * u * sin(rad).toFloat()),
-        )
-    }
+    drawCircle(dot, radius = 2.6f * u, center = Offset(center.x, center.y - 70f * u))
+    if (secondDot > 0f) drawCircle(dot.copy(alpha = dot.alpha * secondDot), radius = 2.6f * u, center = Offset(center.x, center.y + 70f * u))
 }
 
 private fun DrawScope.drawHalo(progress: Float, u: Float, alpha: Float) {
-    val haloAlpha = (0.35f + (0.08f - 0.35f) * progress) * alpha
-    drawCircle(SaColors.Accent.copy(alpha = haloAlpha), radius = 54f * u * (1f + 0.18f * progress))
+    val haloAlpha = lerp(0.26f, 0.07f, progress) * alpha
+    drawCircle(SaColors.Accent.copy(alpha = haloAlpha), radius = 56f * u * lerp(1f, 1.12f, progress))
 }
 
-private fun DrawScope.drawCore(colors: JarvisColors, u: Float, alpha: Float) {
-    drawCircle(colors.coreFill.copy(alpha = colors.coreFill.alpha * alpha), radius = 40f * u)
-    drawCircle(colors.coreBorder.copy(alpha = colors.coreBorder.alpha * alpha), radius = 40f * u, style = Stroke(width = 1.5f * u))
+private fun DrawScope.drawCore(fill: Color, border: Color, u: Float, alpha: Float) {
+    drawCircle(fill.copy(alpha = fill.alpha * alpha), radius = 40f * u)
+    drawCircle(border.copy(alpha = border.alpha * alpha), radius = 40f * u, style = Stroke(width = 1.5f * u))
 }
 
-private fun DrawScope.drawAnalyzingCore(colors: JarvisColors, u: Float, alpha: Float) {
-    drawCircle(colors.analyzingFill.copy(alpha = colors.analyzingFill.alpha * alpha), radius = 54f * u)
-    drawCircle(colors.analyzingBorder.copy(alpha = colors.analyzingBorder.alpha * alpha), radius = 54f * u, style = Stroke(width = 1.5f * u))
+private fun DrawScope.drawAnalyzingCore(u: Float, alpha: Float) {
+    drawCircle(SaColors.Wine.copy(alpha = 0.08f * alpha), radius = 54f * u)
+    drawCircle(SaColors.Accent.copy(alpha = alpha), radius = 54f * u, style = Stroke(width = 1.5f * u))
 }
 
-/**
- * Barras de ancho 4 y radio 2 centradas en y = 100. Cada una oscila con una curva
- * senoidal (suave en los extremos) desfasada; con nivel de micrófono ([mic] ≥ 0), la
- * altura mezcla la oscilación con ese nivel.
- */
-private fun DrawScope.drawBars(colors: JarvisColors, u: Float, bars: List<Bar>, phase: Float, animated: Boolean, mic: Float, alpha: Float) {
+/** Barras de ancho 4 y radio 2 centradas en y = 100; laten de 0,35 a 1 de su alto. */
+private fun DrawScope.drawBars(color: Color, u: Float, bars: List<Bar>, seconds: Float, half: Float, animated: Boolean) {
     val width = 4f * u
-    val color = colors.bars.copy(alpha = colors.bars.alpha * alpha)
-    val period = if (bars.size > 5) 1.1f else 2.2f
     for (bar in bars) {
-        val osc = if (animated) 0.5f - 0.5f * cos(phase - TWO_PI * bar.delay / period) else 1f
-        val amount = if (mic >= 0f) 0.45f * osc + 0.55f * mic * (0.6f + 0.4f * osc) else osc
-        val scale = if (animated) BAR_MIN + (1f - BAR_MIN) * amount else 1f
+        val scale = if (animated) lerp(BAR_MIN, 1f, pingPong(seconds - bar.delay, half)) else 1f
         val h = bar.height * u * scale
         val x = center.x + (bar.x - 100f) * u
-        drawRoundRect(color, topLeft = Offset(x - width / 2, center.y - h / 2), size = Size(width, h), cornerRadius = CornerRadius(2f * u))
+        drawRoundRect(color, topLeft = Offset(x, center.y - h / 2), size = Size(width, h), cornerRadius = CornerRadius(2f * u))
     }
+}
+
+/** Modo ambiente: emblema estático y simplificado, en gris sobre negro. */
+private fun DrawScope.drawAmbient(u: Float) {
+    drawTicks(SaColors.AmbientDim, u)
+    drawArcStroke(arcStrokes(0f).first(), SaColors.AmbientDim, u)
+    drawInnerRing(SaColors.AmbientDim, SaColors.AmbientContent, u, secondDot = 0f)
+    drawCore(Color.Transparent, SaColors.AmbientDim, u, alpha = 1f)
+    drawBars(SaColors.AmbientContent, u, LISTENING_BARS, 0f, LISTENING_BAR_HALF, animated = false)
 }
