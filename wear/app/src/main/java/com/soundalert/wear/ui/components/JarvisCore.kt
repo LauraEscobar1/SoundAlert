@@ -45,6 +45,9 @@ enum class CoreMode { LISTENING, ANALYZING, PAUSED }
  *     x = 84…116 de 18, 30, 40, 30, 18 de alto (scaleY 0,35 → 1, 1,1 s ida y vuelta,
  *     desfases −0,4 −0,2 0 −0,6 −0,8 s). Analizando, 9 en x = 68…132 de 12, 24, 36, 48,
  *     56, 44, 30, 20, 12, en 0,55 s.
+ * Analizando (B), en lugar del halo y del núcleo: un círculo estático r = 54 con relleno
+ * café al 8 % y trazo óxido de 1,5, y el anillo interior lleva dos puntos, en (100, 30) y
+ * (100, 170).
  * En modo ambiente no hay animación ni halo, y todo se dibuja en gris sobre negro.
  *
  * Los valores animados se leen solo al dibujar: el emblema no recompone en cada frame.
@@ -60,16 +63,20 @@ fun JarvisCore(mode: CoreMode, modifier: Modifier = Modifier) {
         val transition = rememberInfiniteTransition(label = "núcleo")
         val arc = transition.spin(animated, if (analyzing) 2_200 else 9_000, clockwise = true)
         val inner = transition.spin(animated, if (analyzing) 3_500 else 14_000, clockwise = false)
-        val halo = transition.breathe(animated, durationMs = 2_400)
+        val halo = transition.breathe(animated && !analyzing, durationMs = 2_400)
         val heights = bars.map { transition.bar(animated, if (analyzing) 550 else 1_100, it.delayMs) }
         val colors = if (ambient) CoreColors.Ambient else CoreColors.Day
         Canvas(modifier) {
             val u = size.minDimension / VIEWBOX
             drawTicks(colors, u)
             rotate(arc.value) { drawSegmentedArc(colors, u) }
-            rotate(inner.value) { drawInnerRing(colors, u) }
-            if (!ambient) drawHalo(halo.value, u)
-            drawDisc(colors, u)
+            rotate(inner.value) { drawInnerRing(colors, u, bothDots = analyzing) }
+            if (analyzing) {
+                drawAnalyzingDisc(colors, u)
+            } else {
+                if (!ambient) drawHalo(halo.value, u)
+                drawDisc(colors, u)
+            }
             drawBars(colors, u, bars, heights)
         }
     }
@@ -91,6 +98,8 @@ private class CoreColors(
     val dot: Color,
     val discFill: Color,
     val discBorder: Color,
+    val analyzingFill: Color,
+    val analyzingBorder: Color,
     val bars: Color,
 ) {
     companion object {
@@ -101,6 +110,8 @@ private class CoreColors(
             dot = SaColors.Brown,
             discFill = SaColors.Brown.copy(alpha = 0.12f),
             discBorder = SaColors.Brown.copy(alpha = 0.8f),
+            analyzingFill = SaColors.Brown.copy(alpha = 0.08f),
+            analyzingBorder = SaColors.Rust,
             bars = SaColors.Ink,
         )
         val Ambient = CoreColors(
@@ -110,6 +121,8 @@ private class CoreColors(
             dot = SaColors.AmbientContent,
             discFill = Color.Transparent,
             discBorder = SaColors.AmbientDim,
+            analyzingFill = Color.Transparent,
+            analyzingBorder = SaColors.AmbientDim,
             bars = SaColors.AmbientContent,
         )
     }
@@ -170,14 +183,15 @@ private fun DrawScope.drawSegmentedArc(colors: CoreColors, u: Float) {
     )
 }
 
-private fun DrawScope.drawInnerRing(colors: CoreColors, u: Float) {
+private fun DrawScope.drawInnerRing(colors: CoreColors, u: Float, bothDots: Boolean) {
     drawCircle(
         colors.ring,
         radius = 70f * u,
         style = Stroke(width = 1.5f * u, pathEffect = PathEffect.dashPathEffect(floatArrayOf(3f * u, 5f * u))),
     )
-    // Punto en (100, 30): arriba, sobre el anillo.
+    // Punto en (100, 30): arriba, sobre el anillo; al analizar, otro en (100, 170), abajo.
     drawCircle(colors.dot, radius = 3f * u, center = Offset(center.x, center.y - 70f * u))
+    if (bothDots) drawCircle(colors.dot, radius = 3f * u, center = Offset(center.x, center.y + 70f * u))
 }
 
 private fun DrawScope.drawHalo(progress: Float, u: Float) {
@@ -188,6 +202,12 @@ private fun DrawScope.drawHalo(progress: Float, u: Float) {
 private fun DrawScope.drawDisc(colors: CoreColors, u: Float) {
     drawCircle(colors.discFill, radius = 40f * u)
     drawCircle(colors.discBorder, radius = 40f * u, style = Stroke(width = 1.5f * u))
+}
+
+/** Analizando: círculo estático r = 54, café al 8 % con trazo óxido de 1,5. */
+private fun DrawScope.drawAnalyzingDisc(colors: CoreColors, u: Float) {
+    drawCircle(colors.analyzingFill, radius = 54f * u)
+    drawCircle(colors.analyzingBorder, radius = 54f * u, style = Stroke(width = 1.5f * u))
 }
 
 private fun DrawScope.drawBars(colors: CoreColors, u: Float, bars: List<Bar>, scales: List<State<Float>>) {
