@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.material3.Text
 import com.soundalert.wear.R
@@ -61,8 +62,8 @@ fun ContextContent(options: List<SoundAlertContext>, current: SoundAlertContext,
     var cursor by rememberSaveable { mutableIntStateOf(options.indexOf(current).coerceAtLeast(0)) }
     WatchScreen(Modifier.rotarySteps { cursor = (cursor + it).coerceIn(0, options.lastIndex) }) { scale ->
         with(scale) {
-            // Medidas del mockup (centros, sobre 192): hora en y≈23, "Contexto" en y≈33 y
-            // filas de 133,6 × 18,2 cada 22 desde y≈55,5.
+            // Centros sobre 192: hora en y≈23, "Contexto" en y≈33 y filas de 130 × 30 cada 34
+            // (4 de separación) desde y = 62, dentro del margen de seguridad.
             Clock(Modifier.centerAt(23.mdp), color = SaColors.Brown)
             Row(Modifier.centerAt(33.2.mdp), verticalAlignment = Alignment.Bottom) {
                 Text("Contexto", style = SaText.screenTitle, color = SaColors.Ink, maxLines = 1)
@@ -88,15 +89,15 @@ fun ContextContent(options: List<SoundAlertContext>, current: SoundAlertContext,
 
 /**
  * Fila resaltada: vidrio con texto e icono en tinta. Resto: café al 10 % con texto café.
- * La píldora visible mide 133,6 × 18,2 como en el mockup; la zona táctil ocupa toda la
- * franja de la fila (22 de alto, hasta la siguiente) y 150 de ancho, sin pisar a las vecinas.
+ * La píldora visible mide 130 × 30; la zona táctil es la fila más la separación (34 de
+ * alto, hasta la siguiente), sin pisar a las vecinas.
  */
 @Composable
 private fun ContextRow(option: SoundAlertContext, highlighted: Boolean, isCurrent: Boolean, onClick: () -> Unit, scale: WatchScale, modifier: Modifier) = with(scale) {
     val content = if (highlighted) SaColors.Ink else SaColors.Brown
     Box(
         modifier
-            .size(width = 150.mdp, height = ROW_PITCH.mdp)
+            .size(width = ROW_WIDTH.mdp, height = ROW_PITCH.mdp)
             .clickable(role = Role.RadioButton, onClick = onClick)
             .semantics { selected = isCurrent },
         contentAlignment = Alignment.Center,
@@ -104,21 +105,23 @@ private fun ContextRow(option: SoundAlertContext, highlighted: Boolean, isCurren
         val shape = RoundedCornerShape(50)
         Row(
             Modifier
-                .size(width = 133.6.mdp, height = 18.2.mdp)
+                .size(width = ROW_WIDTH.mdp, height = ROW_HEIGHT.mdp)
                 .then(if (highlighted) Modifier.glass(shape) else Modifier.clip(shape).background(SaColors.BrownFaint))
-                .padding(start = 10.mdp, end = 9.4.mdp),
+                .padding(start = 13.mdp, end = 12.mdp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            GlyphIcon(option.icon, glyphHeight = 5.8.mdp, maxGlyphWidth = 6.5.mdp, tint = content)
-            Spacer(Modifier.width(6.5.mdp))
-            FitText(option.label, SaText.row, content, Modifier.weight(1f))
-            if (isCurrent) GlyphIcon(R.drawable.ic_check, glyphHeight = 3.9.mdp, tint = content, contentDescription = "Actual")
+            GlyphIcon(option.icon, glyphHeight = 7.5.mdp, maxGlyphWidth = 8.5.mdp, tint = content)
+            Spacer(Modifier.width(8.mdp))
+            FitText(option.label, SaText.row.copy(fontSize = 8.4.sp), content, Modifier.weight(1f))
+            if (isCurrent) GlyphIcon(R.drawable.ic_check, glyphHeight = 5.mdp, tint = content, contentDescription = "Actual")
         }
     }
 }
 
-private const val FIRST_ROW_Y = 55.5f
-private const val ROW_PITCH = 22.05f
+private const val FIRST_ROW_Y = 62f
+private const val ROW_HEIGHT = 30f
+private const val ROW_PITCH = 34f
+private const val ROW_WIDTH = 130f
 
 
 /**
