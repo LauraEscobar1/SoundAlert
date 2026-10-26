@@ -65,7 +65,6 @@ fun ContextContent(options: List<SoundAlertContext>, current: SoundAlertContext,
             Row(Modifier.align(Alignment.TopCenter).padding(top = 19.mdp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Contexto", style = SaText.screenTitle, color = SaColors.Ink, maxLines = 1)
                 Spacer(Modifier.width(5.mdp))
-                // Etiqueta del diseño: el contexto se detectará por ubicación y movimiento.
                 Text(CONTEXT_SOURCE_TAG, style = SaText.tag, color = SaColors.Brown, maxLines = 1)
             }
             // Filas con zona táctil de 46 (fila visible de 36 + margen): 138 en total, centradas en y≈106.
@@ -115,5 +114,8 @@ private fun ContextRow(option: SoundAlertContext, highlighted: Boolean, isCurren
     }
 }
 
-/** "AUTO" según el diseño; hoy el contexto lo elige la persona (ContextManager). */
-private const val CONTEXT_SOURCE_TAG = "AUTO"
+/**
+ * De dónde sale el contexto: hoy lo elige la persona (ContextManager). Pasará a "AUTO"
+ * cuando exista un proveedor por ubicación y movimiento (ActiveContextProvider).
+ */
+private const val CONTEXT_SOURCE_TAG = "MANUAL"

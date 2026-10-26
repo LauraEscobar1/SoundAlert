@@ -54,7 +54,7 @@ Jetpack Compose para Wear OS (Material 3, `ui/`). Las pantallas solo **leen** el
 | C · Peligro | Pantalla roja, 3 barras, icono con 3 ondas, titular, "SIGUE SONANDO" mientras suena, anillo negro y "Entendido" | La alerta ACTIVE más urgente del `AlertManager`; no se cierra sola |
 | D · Atención | Pantalla ámbar, 2 barras, 2 ondas, sin botón; anillo y barra de cuenta atrás de 10 s | `AlertManager` (`attentionTimeoutMs`) |
 | E · Aviso | Pantalla azul, 1 barra, campana con ecos, sin botón; anillo y barra de 5 s | `AlertManager` (`informationTimeoutMs`) |
-| F · Contexto | CASA, CALLE, OTRO; la corona mueve el vidrio y un toque lo aplica (etiqueta "AUTO" del diseño) | `ContextManager.set` |
+| F · Contexto | CASA, CALLE, OTRO; la corona mueve el vidrio y un toque lo aplica (etiqueta "MANUAL": aún no hay detección automática) | `ContextManager.set` |
 | G · Sonidos en *contexto* | Panal 2 – 3 – 2 con los sonidos que tienen regla en el contexto; tocar = activar/desactivar (toast). Más de 7: la corona pasa de página | `RuleEngine.availableRules` + `SoundToggles` |
 | H · Reloj de sesiones | Esfera de 12 h: cada sesión de las últimas 12 h es un arco en su franja (seleccionada en naranja, en curso en óxido) y cada alerta un punto de su color. La corona elige sesión | `SessionTracker` |
 | I · Detalle de sesión | Arco de 240° del inicio al fin con cada alerta en su minuto; tarjeta con la alerta seleccionada y si se confirmó | `SessionTracker` |

@@ -109,7 +109,7 @@ object SaText {
     /** "IA · ANALIZANDO", chip "CASA", píldora "94%", "SESIÓN 3 DE 4". */
     val labelSmall = TextStyle(fontFamily = SaFonts.Mono, fontWeight = FontWeight.Bold, fontSize = 7.sp, lineHeight = 8.5.sp)
 
-    /** Etiquetas junto a un título ("AUTO", "5 DE 7") y pies ("TOCA PARA ACTIVAR"). */
+    /** Etiquetas junto a un título ("MANUAL", "5 DE 7") y pies ("TOCA PARA ACTIVAR"). */
     val tag = TextStyle(fontFamily = SaFonts.Mono, fontWeight = FontWeight.Bold, fontSize = 6.5.sp, lineHeight = 7.5.sp)
 
 }

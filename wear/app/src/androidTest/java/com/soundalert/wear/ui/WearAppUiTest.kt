@@ -81,7 +81,7 @@ class WearAppUiTest {
         // F · Contexto: solo CASA, CALLE y OTRO; elegir CALLE vuelve al reposo con el nuevo contexto.
         compose.onNodeWithContentDescription("Contexto: Casa").performClick()
         compose.onNodeWithText("Contexto").assertExists()
-        compose.onNodeWithText("AUTO").assertExists()
+        compose.onNodeWithText("MANUAL").assertExists()
         compose.onNodeWithText("Otro").assertExists()
         compose.onNodeWithText("Calle").performClick()
         compose.waitUntil(3_000) { compose.onAllNodes(hasContentDescription("Contexto: Calle")).fetchSemanticsNodes().isNotEmpty() }
