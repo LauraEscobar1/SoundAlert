@@ -20,7 +20,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -53,11 +52,11 @@ import com.soundalert.wear.ui.components.GlyphIcon
 import com.soundalert.wear.ui.components.WatchScale
 import com.soundalert.wear.ui.components.WatchScreen
 import com.soundalert.wear.ui.components.rotarySteps
+import com.soundalert.wear.ui.components.rememberNow
 import com.soundalert.wear.ui.components.centerAt
 import com.soundalert.wear.ui.icon
 import com.soundalert.wear.ui.theme.SaColors
 import com.soundalert.wear.ui.theme.SaText
-import kotlinx.coroutines.delay
 import java.time.ZoneId
 import kotlin.math.cos
 import kotlin.math.sin
@@ -69,7 +68,7 @@ import kotlin.math.sin
 @Composable
 fun SessionClockScreen(visible: Boolean, onOpen: (String) -> Unit) {
     val all by SoundAlertRuntime.sessionTracker.sessions.collectAsStateWithLifecycle()
-    val now by nowEvery(30_000)
+    val now = rememberNow(30_000)
     val sessions = visibleSessions(all, now)
     // Por defecto, la más reciente. Se recuerda por id para que una sesión nueva no la mueva.
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -235,14 +234,6 @@ internal fun DrawScope.polar(dialDegrees: Float, radius: Float): Offset {
 private fun polarDp(dialDegrees: Float, radius: Float): Offset {
     val rad = Math.toRadians((dialDegrees - 90f).toDouble())
     return Offset(radius * cos(rad).toFloat(), radius * sin(rad).toFloat())
-}
-
-@Composable
-internal fun nowEvery(periodMs: Long) = produceState(System.currentTimeMillis()) {
-    while (true) {
-        delay(periodMs)
-        value = System.currentTimeMillis()
-    }
 }
 
 /** Medidas del mockup sobre 192: pista de 6,5 en r = 82,9 (la seleccionada, de 10) y números en r = 67,8. */

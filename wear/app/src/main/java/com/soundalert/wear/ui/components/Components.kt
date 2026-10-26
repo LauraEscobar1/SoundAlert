@@ -29,11 +29,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.Text
 import com.soundalert.wear.R
@@ -98,17 +99,35 @@ fun WatchScreen(
 
 private const val MOCKUP_DIAMETER_DP = 192f
 
-/** Hora recta ("10:24"), respetando el formato 12/24 h del reloj. */
+/**
+ * Hora local recta ("10:24"): zona horaria y formato 12/24 h del sistema, leídos en cada
+ * actualización (si cambian, la hora se corrige sola).
+ */
 @Composable
 fun Clock(modifier: Modifier = Modifier, style: TextStyle = SaText.clock, color: Color = SaColors.Ink) {
     val context = LocalContext.current
-    val now by produceState(System.currentTimeMillis()) {
+    val now = rememberNow()
+    Text(DateFormat.getTimeFormat(context).format(Date(now)), modifier = modifier, style = style, color = color, maxLines = 1)
+}
+
+/**
+ * Hora actual que se actualiza al empezar cada minuto (o cada [periodMs] si es menor) y
+ * al volver a la app (onResume), para que nunca se vea una hora vieja.
+ */
+@Composable
+fun rememberNow(periodMs: Long = 60_000): Long {
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LifecycleResumeEffect(Unit) {
+        now = System.currentTimeMillis()
+        onPauseOrDispose { }
+    }
+    LaunchedEffect(periodMs) {
         while (true) {
-            value = System.currentTimeMillis()
-            delay(60_000 - value % 60_000)
+            now = System.currentTimeMillis()
+            delay(periodMs - now % periodMs)
         }
     }
-    Text(DateFormat.getTimeFormat(context).format(Date(now)), modifier = modifier, style = style, color = color, maxLines = 1)
+    return now
 }
 
 /**

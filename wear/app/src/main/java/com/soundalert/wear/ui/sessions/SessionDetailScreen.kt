@@ -49,6 +49,7 @@ import com.soundalert.wear.ui.components.WatchScale
 import com.soundalert.wear.ui.components.WatchScreen
 import com.soundalert.wear.ui.components.glass
 import com.soundalert.wear.ui.components.rotarySteps
+import com.soundalert.wear.ui.components.rememberNow
 import com.soundalert.wear.ui.components.centerAt
 import com.soundalert.wear.ui.icon
 import com.soundalert.wear.ui.theme.SaColors
@@ -63,7 +64,7 @@ import java.time.ZoneId
 @Composable
 fun SessionDetailScreen(sessionId: String) {
     val all by SoundAlertRuntime.sessionTracker.sessions.collectAsStateWithLifecycle()
-    val now by nowEvery(30_000)
+    val now = rememberNow(30_000)
     val visible = visibleSessions(all, now)
     val session = all.firstOrNull { it.id == sessionId } ?: return
     // Misma numeración que la esfera; una sesión que ya salió de ella se numera entre todas.
