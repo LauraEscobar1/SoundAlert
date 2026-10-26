@@ -71,7 +71,7 @@ fun alertOnScreen(alerts: List<Alert>): Alert? =
         .minWithOrNull(compareBy<Alert> { it.priority.ordinal }.thenByDescending { it.createdAtMs })
 
 /**
- * Celda del panal G. [enabled] false: el usuario la apagó en este contexto (no alerta).
+ * Sonido de la rueda G. [enabled] false: el usuario la apagó en este contexto (no alerta).
  * [locked]: sonido de peligro, siempre activo por seguridad.
  */
 data class SoundCell(val category: SoundCategory, val priority: Priority, val enabled: Boolean) {

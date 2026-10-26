@@ -97,9 +97,6 @@ object SaText {
     /** Filas de contexto. */
     val row = TextStyle(fontFamily = SaFonts.SemiBold, fontSize = 6.9.sp, lineHeight = 8.sp)
 
-    /** Nombre dentro de una celda del panal. */
-    val cell = TextStyle(fontFamily = SaFonts.SemiBold, fontSize = 5.sp, lineHeight = 5.6.sp, textAlign = TextAlign.Center)
-
     /** Subtítulos ("Timbre · Alarma · Bebé", "Calle · ahora"). */
     val body = TextStyle(fontFamily = SaFonts.Regular, fontSize = 7.1.sp, lineHeight = 8.5.sp, textAlign = TextAlign.Center)
 
@@ -120,9 +117,6 @@ object SaText {
 
     /** Etiquetas junto a un título ("MANUAL", "5 DE 7"), números de la esfera y horas del detalle. */
     val tag = TextStyle(fontFamily = SaFonts.Mono, fontWeight = FontWeight.Medium, fontSize = 5.2.sp, lineHeight = 6.sp, letterSpacing = 0.08.em)
-
-    /** Pie del panal ("TOCA PARA ACTIVAR") y "GIRA LA CORONA". */
-    val footer = TextStyle(fontFamily = SaFonts.Mono, fontWeight = FontWeight.Bold, fontSize = 4.6.sp, lineHeight = 5.5.sp, letterSpacing = 0.2.em)
 
     /** Chip negro de las alertas ("SIGUE SONANDO"). */
     val chip = TextStyle(fontFamily = SaFonts.Mono, fontWeight = FontWeight.Bold, fontSize = 5.sp, lineHeight = 6.sp, letterSpacing = 0.1.em)

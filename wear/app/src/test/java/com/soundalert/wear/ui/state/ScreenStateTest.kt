@@ -80,7 +80,7 @@ class ScreenStateTest {
         assertNull(alertOnScreen(listOf(alert("x", Priority.ATTENTION, 1, AlertStatus.EXPIRED))))
     }
 
-    // ---------- G · Sonidos del contexto (panal) ----------
+    // ---------- G · Sonidos del contexto (rueda) ----------
 
     @Test
     fun `G muestra las reglas reales del contexto, peligro primero, con lo que apago el usuario`() {

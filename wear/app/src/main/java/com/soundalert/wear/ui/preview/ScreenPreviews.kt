@@ -89,8 +89,8 @@ private fun SoundsPreview() = SoundAlertTheme {
 @Composable
 private fun SoundsToastPreview() = SoundAlertTheme {
     val toast = rememberToastState()
-    remember { toast.show("Perro activado", check = true) }
-    SoundsContent(SoundAlertContext.CALLE, streetCells(), onToggle = {}, toast = toast, initialScrollDp = 60f)
+    remember { toast.show("Activado", check = true) }
+    SoundsContent(SoundAlertContext.CALLE, streetCells(), onToggle = {}, toast = toast, initialIndex = 4)
 }
 
 @Preview(name = "H · Pila de sesiones", device = SMALL_ROUND, showSystemUi = true)
