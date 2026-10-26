@@ -81,7 +81,7 @@ private fun ContextPreview() = SoundAlertTheme {
 @Preview(name = "G · Sonidos de la calle", device = SMALL_ROUND, showSystemUi = true)
 @Composable
 private fun SoundsPreview() = SoundAlertTheme {
-    SoundsContent(SoundAlertContext.CALLE, streetCells(), page = 0, onPage = {}, onToggle = {}, toast = rememberToastState())
+    SoundsContent(SoundAlertContext.CALLE, streetCells(), onToggle = {}, toast = rememberToastState())
 }
 
 @Preview(name = "G · Sonidos con toast", device = SMALL_ROUND, showSystemUi = true)
@@ -89,7 +89,7 @@ private fun SoundsPreview() = SoundAlertTheme {
 private fun SoundsToastPreview() = SoundAlertTheme {
     val toast = rememberToastState()
     remember { toast.show("Perro activado", check = true) }
-    SoundsContent(SoundAlertContext.CALLE, streetCells(), page = 1, onPage = {}, onToggle = {}, toast = toast)
+    SoundsContent(SoundAlertContext.CALLE, streetCells(), onToggle = {}, toast = toast, initialScrollDp = 60f)
 }
 
 @Preview(name = "H · Reloj de sesiones", device = SMALL_ROUND, showSystemUi = true)

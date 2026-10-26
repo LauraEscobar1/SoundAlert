@@ -1,10 +1,23 @@
 package com.soundalert.wear.ui.sounds
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import kotlin.math.roundToInt
+import androidx.wear.compose.foundation.rotary.rotaryScrollable
+import androidx.wear.compose.foundation.rotary.RotaryScrollableDefaults
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.scrollable
+import androidx.compose.foundation.gestures.rememberScrollableState
+import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,9 +32,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,10 +71,8 @@ import com.soundalert.wear.ui.components.WatchScale
 import com.soundalert.wear.ui.components.WatchScreen
 import com.soundalert.wear.ui.components.centerAt
 import com.soundalert.wear.ui.components.rememberToastState
-import com.soundalert.wear.ui.components.rotarySteps
 import com.soundalert.wear.ui.icon
 import com.soundalert.wear.ui.label
-import com.soundalert.wear.ui.state.CELLS_PER_PAGE
 import com.soundalert.wear.ui.state.SoundCell
 import com.soundalert.wear.ui.state.soundCells
 import com.soundalert.wear.ui.theme.SaColors
@@ -72,25 +81,24 @@ import kotlin.math.abs
 import kotlin.math.sqrt
 
 /**
- * G · Sonidos del contexto activo en un panal de hexágonos (filas de 2 – 3 – 2).
+ * G · Sonidos del contexto activo en un único panal de hexágonos (filas de 2 y 3) que se
+ * desplaza en vertical con el dedo o con la corona, con inercia, como el lanzador de apps
+ * de Wear OS: las celdas cerca de los bordes se achican y se desvanecen (ojo de pez).
  *
  * Son las reglas reales del reloj para ese contexto. Tocar una celda la enciende o la
  * apaga (SoundToggles, guardado por contexto) y el RuleEngine lo aplica a la siguiente
  * detección. Los sonidos de peligro llevan un candado: siempre están activos y tocarlos
- * solo lo recuerda. Si hay más de 7 sonidos, la corona (o deslizar en vertical) pasa de página.
+ * solo lo recuerda. El encabezado (fijo) abre la pantalla de contexto.
  */
 @Composable
-fun SoundsScreen(visible: Boolean) {
+fun SoundsScreen(visible: Boolean, onOpenContext: (() -> Unit)? = null) {
     val context by SoundAlertRuntime.contextManager.context.collectAsStateWithLifecycle()
     val disabled by SoundAlertRuntime.soundToggles.disabled.collectAsStateWithLifecycle()
     val cells = remember(context, disabled) { soundCells(context, SoundAlertRuntime.ruleEngine) }
-    var page by rememberSaveable(context) { mutableIntStateOf(0) }
     val toast = rememberToastState()
     SoundsContent(
         context = context,
         cells = cells,
-        page = page,
-        onPage = { page = it },
         onToggle = { cell ->
             val name = SoundUi.shortName(cell.category)
             when {
@@ -101,6 +109,7 @@ fun SoundsScreen(visible: Boolean) {
         },
         toast = toast,
         visible = visible,
+        onOpenContext = onOpenContext,
     )
 }
 
@@ -108,80 +117,118 @@ fun SoundsScreen(visible: Boolean) {
 fun SoundsContent(
     context: SoundAlertContext,
     cells: List<SoundCell>,
-    page: Int,
-    onPage: (Int) -> Unit,
     onToggle: (SoundCell) -> Unit,
     toast: ToastState,
     visible: Boolean = true,
+    onOpenContext: (() -> Unit)? = null,
+    initialScrollDp: Float = 0f,
 ) {
-    val pages = cells.chunked(CELLS_PER_PAGE).ifEmpty { listOf(emptyList()) }
-    val current = page.coerceIn(0, pages.lastIndex)
-    val changePage = { delta: Int -> onPage((current + delta).coerceIn(0, pages.lastIndex)) }
-    WatchScreen(
-        Modifier
-            .rotarySteps(active = visible) { changePage(it) }
-            .pointerInput(pages.size) {
-                var dragged = 0f
-                detectVerticalDragGestures(onDragStart = { dragged = 0f }, onDragEnd = {
-                    if (abs(dragged) > 24.dp.toPx()) changePage(if (dragged < 0) 1 else -1)
-                }) { _, delta -> dragged += delta }
-            },
-    ) { scale ->
+    val slots = remember(cells.size) { honeycombSlots(cells.size, HEX_RADIUS, HEX_GAP) }
+    val contentHeight = slots.maxOfOrNull { it.y } ?: 0f
+    val maxScrollDp = (contentHeight - (LAST_ROW_Y - FIRST_ROW_Y)).coerceAtLeast(0f)
+    WatchScreen { scale ->
         with(scale) {
-            // Encabezado (centro en y≈26,6 sobre 192): icono y nombre del contexto + "5 DE 7".
+            val unit = with(LocalDensity.current) { 1.mdp.toPx() } // px por dp del diseño
+            val maxScroll = maxScrollDp * unit
+            var offset by remember(context) { mutableFloatStateOf((initialScrollDp * unit).coerceIn(0f, maxScroll)) }
+            val scrollState = rememberScrollableState { delta ->
+                val target = (offset - delta).coerceIn(0f, maxScroll)
+                val consumed = offset - target
+                offset = target
+                consumed
+            }
+            val focusRequester = remember { FocusRequester() }
+            LaunchedEffect(visible) { if (visible) focusRequester.requestFocus() }
+
+            // Posición y ojo de pez de cada celda: se calculan en las fases de diseño y dibujo
+            // (leen [offset] ahí), así que desplazar no recompone.
+            fun centerY(i: Int) = (FIRST_ROW_Y + slots[i].y) * unit - offset
+            fun lens(i: Int) = fisheye(centerY(i) / unit)
+
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .scrollable(scrollState, Orientation.Vertical)
+                    .rotaryScrollable(RotaryScrollableDefaults.behavior(scrollState), focusRequester)
+                    // Cada toque va a la celda de centro más cercano: cada una recibe toda su
+                    // zona hexagonal (44 dp entre lados opuestos) sin pisar a sus vecinas.
+                    .pointerInput(cells, slots) {
+                        detectTapGestures { tap ->
+                            val nearest = cells.indices.minByOrNull { i -> (Offset(size.width / 2f + slots[i].x * unit, centerY(i)) - tap).getDistance() }
+                            if (nearest != null) {
+                                val (cellScale, alpha) = lens(nearest)
+                                val distance = (Offset(size.width / 2f + slots[nearest].x * unit, centerY(nearest)) - tap).getDistance()
+                                if (alpha > 0.3f && distance <= HEX_RADIUS * unit * cellScale) onToggle(cells[nearest])
+                            }
+                        }
+                    },
+            ) {
+                cells.forEachIndexed { index, cell ->
+                    HexCell(
+                        cell,
+                        onToggle = { onToggle(cell) },
+                        scale = scale,
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .offset { IntOffset((slots[index].x * unit).roundToInt(), (centerY(index) - HEX_RADIUS * unit).roundToInt()) }
+                            .graphicsLayer {
+                                val (cellScale, alpha) = lens(index)
+                                scaleX = cellScale
+                                scaleY = cellScale
+                                this.alpha = alpha
+                            },
+                    )
+                }
+            }
+
+            // Encabezado fijo (centro en y≈26,6): icono y nombre del contexto + "5 DE 7". Abre el contexto.
+            val open = if (onOpenContext != null) Modifier.clickable(onClickLabel = "Cambiar contexto", role = Role.Button, onClick = onOpenContext) else Modifier
             Row(
-                Modifier.centerAt(26.6.mdp).semantics(mergeDescendants = true) {},
+                Modifier
+                    .centerAt(26.6.mdp)
+                    .clip(RoundedCornerShape(50))
+                    .background(SaColors.Background)
+                    .then(open)
+                    .semantics(mergeDescendants = true) {}
+                    .padding(horizontal = 4.mdp, vertical = 1.mdp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                GlyphIcon(context.icon, glyphHeight = 7.1.mdp, tint = SaColors.Ink, contentDescription = "Contexto")
+                GlyphIcon(context.icon, glyphHeight = 7.1.mdp, tint = SaColors.Wine, contentDescription = "Contexto")
                 Spacer(Modifier.width(3.6.mdp))
-                Text(context.label, style = SaText.screenTitle, color = SaColors.Ink, maxLines = 1)
+                Text(context.label, style = SaText.screenTitle, color = SaColors.Wine, maxLines = 1)
                 Spacer(Modifier.width(3.6.mdp))
-                Text("${cells.count { it.enabled }} DE ${cells.size}", style = SaText.tag, color = SaColors.Brown, maxLines = 1)
+                Text("${cells.count { it.enabled }} DE ${cells.size}", style = SaText.tag, color = SaColors.Wine, maxLines = 1)
             }
 
-            val slots = honeycombSlots(HEX_RADIUS, HEX_GAP)
-            val pageCells = pages[current]
-            // Cada toque va a la celda de centro más cercano: cada una recibe toda su zona
-            // hexagonal (44 dp entre lados opuestos, la distancia entre centros) sin pisar a
-            // sus vecinas.
-            Box(
-                Modifier.fillMaxSize().pointerInput(pageCells) {
-                    detectTapGestures { tap ->
-                        val center = Offset(size.width / 2f, size.height / 2f + HONEYCOMB_OFFSET_Y.mdp.toPx())
-                        val nearest = pageCells.indices.minByOrNull { i ->
-                            (Offset(slots[i].x.mdp.toPx(), slots[i].y.mdp.toPx()) + center - tap).getDistance()
-                        }
-                        if (nearest != null) {
-                            val distance = (Offset(slots[nearest].x.mdp.toPx(), slots[nearest].y.mdp.toPx()) + center - tap).getDistance()
-                            if (distance <= HEX_RADIUS.mdp.toPx()) onToggle(pageCells[nearest])
-                        }
-                    }
-                },
-            )
-            pageCells.forEachIndexed { index, cell ->
-                val slot = slots[index]
-                HexCell(
-                    cell,
-                    onToggle = { onToggle(cell) },
-                    scale = scale,
-                    modifier = Modifier.align(Alignment.Center).offset(slot.x.mdp, (slot.y + HONEYCOMB_OFFSET_Y).mdp),
-                )
-            }
-
-            // Pie en y≈163; el toast aparece en su lugar, dentro del margen de seguridad.
-            if (toast.message == null) {
-                val footer = if (pages.size > 1) "TOCA PARA ACTIVAR · ${current + 1}/${pages.size}" else "TOCA PARA ACTIVAR"
-                Text(footer, style = SaText.footer, color = SaColors.Ink, maxLines = 1, modifier = Modifier.centerAt(166.mdp))
-            }
             GlassToast(toast, scale, Modifier.centerAt(163.mdp))
         }
     }
 }
 
 /**
+ * Ojo de pez del panal según la altura del centro de la celda (dp sobre 192): a tamaño
+ * completo en la franja central y cada vez más pequeña y transparente hacia los bordes,
+ * hasta desaparecer bajo el encabezado y fuera del margen de seguridad.
+ */
+internal fun fisheye(y: Float): Pair<Float, Float> {
+    val distance = abs(y - LENS_CENTER_Y)
+    val t = ((distance - LENS_FLAT) / (LENS_EDGE - LENS_FLAT)).coerceIn(0f, 1f)
+    val eased = t * t * (3 - 2 * t) // suave en los dos extremos
+    return (1f - 0.55f * eased) to (1f - eased)
+}
+
+/** Centro del ojo de pez, franja a tamaño completo y distancia a la que la celda desaparece. */
+private const val LENS_CENTER_Y = 100f
+private const val LENS_FLAT = 26f
+private const val LENS_EDGE = 78f
+
+/** Altura de la primera fila sin desplazar y hasta dónde puede subir la última (sobre 192). */
+private const val FIRST_ROW_Y = 60f
+private const val LAST_ROW_Y = 140f
+
+/**
  * Celda hexagonal con la punta arriba. Encendida: vidrio con borde blanco al 45 % y
- * texto en tinta. Apagada: contorno punteado café, icono al 45 % tachado en diagonal.
+ * texto en vino. Apagada: contorno punteado en vino, icono al 45 % tachado en diagonal.
  * El punto de arriba a la derecha es el color de su nivel (borde del color del fondo);
  * las de peligro llevan además un candado arriba a la izquierda y no se apagan.
  */
@@ -213,7 +260,7 @@ private fun HexCell(cell: SoundCell, onToggle: () -> Unit, scale: WatchScale, mo
             Canvas(Modifier.fillMaxSize()) {
                 drawPath(
                     hexPath(size),
-                    SaColors.Brown.copy(alpha = 0.45f),
+                    SaColors.Wine.copy(alpha = 0.45f),
                     style = Stroke(0.9.mdp.toPx(), cap = StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(2.4.mdp.toPx(), 1.8.mdp.toPx()))),
                 )
             }
@@ -224,18 +271,18 @@ private fun HexCell(cell: SoundCell, onToggle: () -> Unit, scale: WatchScale, mo
                 SoundUi.icon(cell.category),
                 glyphHeight = 8.6.mdp,
                 maxGlyphWidth = 10.6.mdp,
-                tint = if (cell.enabled) SaColors.Ink else SaColors.Brown,
+                tint = if (cell.enabled) SaColors.Wine else SaColors.Wine,
                 modifier = Modifier.alpha(if (cell.enabled) 1f else 0.45f),
             )
             if (!cell.enabled) {
                 // Línea diagonal que tacha el icono apagado.
                 Canvas(Modifier.size(11.5.mdp)) {
-                    drawLine(SaColors.Brown, Offset(0f, size.height), Offset(size.width, 0f), strokeWidth = 0.9.mdp.toPx(), cap = StrokeCap.Round)
+                    drawLine(SaColors.Wine, Offset(0f, size.height), Offset(size.width, 0f), strokeWidth = 0.9.mdp.toPx(), cap = StrokeCap.Round)
                 }
             }
         }
-        // El nombre apagado va en café sólido (7:1), no atenuado: el texto debe cumplir 4,5:1.
-        FitText(name, SaText.cell.copy(fontSize = 5.5.sp, lineHeight = 6.2.sp), if (cell.enabled) SaColors.Ink else SaColors.Brown, Modifier.offset(y = 8.7.mdp).width(width * 0.8f), maxLines = 2)
+        // El nombre apagado va en vino sólido (7,1:1), no atenuado: el texto debe cumplir 4,5:1.
+        FitText(name, SaText.cell.copy(fontSize = 5.5.sp, lineHeight = 6.2.sp), if (cell.enabled) SaColors.Wine else SaColors.Wine, Modifier.offset(y = 8.7.mdp).width(width * 0.8f), maxLines = 2)
         // Punto del nivel en la esquina superior derecha (centro a +10,7, −15,7 del centro).
         LevelDot(cell, scale, Modifier.align(Alignment.TopStart).offset(x = (width / 2 + 10.7.mdp - 3.25.mdp), y = (height / 2 - 15.7.mdp - 3.25.mdp)))
         if (cell.locked) {
@@ -243,7 +290,7 @@ private fun HexCell(cell: SoundCell, onToggle: () -> Unit, scale: WatchScale, mo
             GlyphIcon(
                 R.drawable.ic_lock,
                 glyphHeight = 3.6.mdp,
-                tint = SaColors.Ink,
+                tint = SaColors.Wine,
                 modifier = Modifier.align(Alignment.TopStart).offset(x = (width / 2 - 10.7.mdp - 1.45.mdp), y = (height / 2 - 15.7.mdp - 1.8.mdp)),
             )
         }
@@ -259,11 +306,11 @@ private fun LevelDot(cell: SoundCell, scale: WatchScale, modifier: Modifier) = w
         modifier
             .size(6.5.mdp)
             .clip(CircleShape)
-            .background(SaColors.Peach)
+            .background(SaColors.Background)
             .padding(1.mdp)
             .clip(CircleShape)
             // Apagada: el color del nivel atenuado, como en el mockup.
-            .background(if (cell.enabled) cell.priority.color else cell.priority.color.copy(alpha = 0.45f).compositeOver(SaColors.Peach)),
+            .background(if (cell.enabled) cell.priority.color else cell.priority.color.copy(alpha = 0.45f).compositeOver(SaColors.Background)),
     )
 }
 
@@ -282,32 +329,35 @@ private fun hexPath(size: Size) = Path().apply {
     close()
 }
 
-/** Centro de una celda respecto al centro del panal, en dp del diseño (sobre 192). */
+/** Centro de una celda respecto a la primera fila del panal, en dp del diseño (sobre 192). */
 data class HexSlot(val x: Float, val y: Float)
 
 /**
- * Las 7 posiciones del panal 2 – 3 – 2 para hexágonos con la punta arriba de radio
- * [radius] separados [gap]: arriba dos, en el centro tres y abajo dos, encajados.
+ * Posiciones de [count] celdas en un panal continuo de hexágonos con la punta arriba, de
+ * radio [radius] y separados [gap]: filas alternas de 2 y 3 encajadas, centradas en x y
+ * empezando en y = 0.
  */
-fun honeycombSlots(radius: Float, gap: Float): List<HexSlot> {
+fun honeycombSlots(count: Int, radius: Float, gap: Float): List<HexSlot> {
     val dx = radius * SQRT3 + gap
     val dy = radius * 1.5f + gap * SQRT3 / 2
-    return listOf(
-        HexSlot(-dx / 2, -dy), HexSlot(dx / 2, -dy),
-        HexSlot(-dx, 0f), HexSlot(0f, 0f), HexSlot(dx, 0f),
-        HexSlot(-dx / 2, dy), HexSlot(dx / 2, dy),
-    )
+    val slots = ArrayList<HexSlot>(count)
+    var row = 0
+    while (slots.size < count) {
+        val inRow = if (row % 2 == 0) 2 else 3
+        val xs = if (inRow == 2) listOf(-dx / 2, dx / 2) else listOf(-dx, 0f, dx)
+        for (x in xs) if (slots.size < count) slots += HexSlot(x, row * dy)
+        row++
+    }
+    return slots
 }
 
 /**
  * Radio de las celdas y hueco entre ellas, sobre 192: celdas un 10 % mayores que en el
- * mockup (41,2 × 47,5), con centros vecinos a 44 y 3 de separación. El panal (130 × 124)
- * cabe entero, con 7 celdas, dentro del margen de seguridad.
+ * mockup (41,2 × 47,5), con centros vecinos a 44 y 3 de separación. Las filas de 3 miden
+ * 130 de ancho y caben dentro del margen de seguridad.
  */
 const val HEX_RADIUS = 23.76f
 const val HEX_GAP = 3f
 
-/** El panal baja un poco respecto al centro de la esfera para dejar sitio al encabezado. */
-private const val HONEYCOMB_OFFSET_Y = 0.6f
 
 private val SQRT3 = sqrt(3f)

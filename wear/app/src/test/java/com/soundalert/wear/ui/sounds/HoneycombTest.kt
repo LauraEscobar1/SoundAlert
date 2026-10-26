@@ -8,24 +8,14 @@ import kotlin.math.sqrt
 
 class HoneycombTest {
 
-    private val slots = honeycombSlots(HEX_RADIUS, HEX_GAP)
+    private val slots = honeycombSlots(13, HEX_RADIUS, HEX_GAP)
 
     @Test
-    fun `panal de 2 - 3 - 2 centrado`() {
-        assertEquals(7, slots.size)
-        assertEquals(listOf(2, 3, 2), slots.groupBy { it.y }.toSortedMap().values.map { it.size })
-        assertEquals(0f, slots.sumOf { it.x.toDouble() }.toFloat(), 0.001f)
-        assertEquals(0f, slots.sumOf { it.y.toDouble() }.toFloat(), 0.001f)
-    }
-
-    @Test
-    fun `las celdas no se tocan - entre vecinas queda el hueco`() {
-        // Hexágonos con la punta arriba: el apotema es el radio · √3 / 2.
-        val minDistance = HEX_RADIUS * sqrt(3f) + HEX_GAP
-        for (a in slots.indices) for (b in a + 1 until slots.size) {
-            val d = hypot(slots[a].x - slots[b].x, slots[a].y - slots[b].y)
-            assertTrue("$a-$b a $d", d >= minDistance - 0.01f)
-        }
+    fun `panal continuo de filas alternas de 2 y 3, centrado`() {
+        assertEquals(13, slots.size)
+        assertEquals(listOf(2, 3, 2, 3, 2, 1), slots.groupBy { it.y }.toSortedMap().values.map { it.size })
+        assertEquals(0f, slots.first().y)
+        for (row in slots.groupBy { it.y }.values.filter { it.size > 1 }) assertEquals(0f, row.sumOf { it.x.toDouble() }.toFloat(), 0.001f)
     }
 
     @Test
@@ -42,16 +32,28 @@ class HoneycombTest {
     }
 
     @Test
-    fun `todo el panal cabe en la esfera de 192`() {
-        for (slot in slots) {
-            // Vértices de cada hexágono (con el desplazamiento vertical del encabezado).
-            for (k in 0 until 6) {
-                val angle = Math.toRadians(-90.0 + 60 * k)
-                val x = slot.x + HEX_RADIUS * Math.cos(angle)
-                val y = slot.y + 0.6 + HEX_RADIUS * Math.sin(angle)
-                // Dentro del margen de seguridad (~10 % del diámetro).
-                assertTrue("vértice fuera: $x, $y", hypot(x, y) < 96 - 19.2)
-            }
+    fun `las celdas no se tocan - entre vecinas queda el hueco`() {
+        val minDistance = HEX_RADIUS * sqrt(3f) + HEX_GAP
+        for (a in slots.indices) for (b in a + 1 until slots.size) {
+            val d = hypot(slots[a].x - slots[b].x, slots[a].y - slots[b].y)
+            assertTrue("$a-$b a $d", d >= minDistance - 0.01f)
         }
+    }
+
+    @Test
+    fun `las filas de 3 caben a lo ancho en el margen de seguridad`() {
+        val halfWidth = slots.maxOf { it.x } + HEX_RADIUS * sqrt(3f) / 2
+        assertTrue("media anchura $halfWidth", halfWidth < 96 - 19.2f + 2)
+    }
+
+    @Test
+    fun `ojo de pez - tamano completo en el centro, pequeno y transparente en los bordes`() {
+        assertEquals(1f to 1f, fisheye(100f))
+        assertEquals(1f to 1f, fisheye(120f))
+        val (edgeScale, edgeAlpha) = fisheye(178f)
+        assertEquals(0.45f, edgeScale, 0.01f)
+        assertEquals(0f, edgeAlpha, 0.01f)
+        val (midScale, midAlpha) = fisheye(52f)
+        assertTrue(midScale in 0.45f..1f && midAlpha in 0f..1f)
     }
 }

@@ -88,9 +88,6 @@ fun soundCells(context: SoundAlertContext, rules: RuleEngine): List<SoundCell> =
         .sortedWith(compareBy({ it.priority.ordinal }, { it.category.ordinal }))
         .map { SoundCell(it.category, it.priority, rules.isEnabled(context, it.category)) }
 
-/** Celdas por página del panal (filas de 2 – 3 – 2). */
-const val CELLS_PER_PAGE = 7
-
 /** Orden del resumen de la pantalla A: lo más reconocible de cada contexto primero. */
 private val SUMMARY_ORDER = listOf(
     SoundCategory.DOORBELL,
