@@ -2,8 +2,11 @@ package com.soundalert.wear.ui.theme
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.lerp
 import com.soundalert.wear.rules.Priority
 import com.soundalert.wear.ui.color
+import com.soundalert.wear.ui.home.CHIP_MIN_ALPHA
+import com.soundalert.wear.ui.home.SHINE_MAX
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -40,6 +43,14 @@ class ContrastTest {
         assertReadable("vino / vidrio", SaColors.Wine, SaColors.Glass.compositeOver(SaColors.Background))
         assertReadable("vino / tenue", SaColors.Wine, SaColors.WineFaint.compositeOver(SaColors.Background))
         assertReadable("rosa / chip de vino", SaColors.Background, SaColors.Wine)
+    }
+
+    @Test
+    fun `titulos del inicio en su punto mas brillante y chip de confianza en su punto mas tenue`() {
+        // El acento puro no llega (≈3,8:1): el brillo de las letras se queda en SHINE_MAX.
+        assertTrue(contrast(SaColors.Accent, SaColors.Background) < 4.5)
+        assertReadable("brillo del título", lerp(SaColors.Wine, SaColors.Accent, SHINE_MAX), SaColors.Background)
+        assertReadable("chip de confianza", SaColors.Background, SaColors.Wine.copy(alpha = CHIP_MIN_ALPHA).compositeOver(SaColors.Background))
     }
 
     @Test
