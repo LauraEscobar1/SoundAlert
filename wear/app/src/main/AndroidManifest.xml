@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Modo ambiente: la app sigue visible (sin animaciones) cuando la pantalla se atenúa. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Sincronización con la API (Railway). Secundaria: detectar y alertar no necesitan red. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />

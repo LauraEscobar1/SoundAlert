@@ -5,29 +5,25 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,7 +34,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.material3.Text
-import com.soundalert.wear.R
 import com.soundalert.wear.SoundAlertRuntime
 import com.soundalert.wear.context.SoundAlertContext
 import com.soundalert.wear.pipeline.PipelineStatus
@@ -46,13 +41,12 @@ import com.soundalert.wear.pipeline.PipelineStatus.Phase
 import com.soundalert.wear.service.ListeningService
 import com.soundalert.wear.ui.SoundUi
 import com.soundalert.wear.ui.components.Clock
-import com.soundalert.wear.ui.components.fitSquare
-import com.soundalert.wear.ui.components.FitText
-import com.soundalert.wear.ui.components.GlyphIcon
 import com.soundalert.wear.ui.components.ContextChip
-import com.soundalert.wear.ui.components.WatchScale
+import com.soundalert.wear.ui.components.CoreMode
+import com.soundalert.wear.ui.components.FitText
+import com.soundalert.wear.ui.components.JarvisCore
+import com.soundalert.wear.ui.components.LocalAmbient
 import com.soundalert.wear.ui.components.WatchScreen
-import com.soundalert.wear.ui.components.Waveform
 import com.soundalert.wear.ui.state.DetectionDisplay
 import com.soundalert.wear.ui.state.DetectionTracker
 import com.soundalert.wear.ui.state.watchedSummary
@@ -63,13 +57,15 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
- * Pantallas A (reposo / escuchando) y B (sonido detectado), a partir del estado real
- * del pipeline. Tocar la oreja activa o pausa la escucha; el chip abre el contexto.
+ * Pantallas A (escuchando / reposo) y B (analizando), a partir del estado real del
+ * pipeline. Tocar el núcleo activa o pausa la escucha; el chip abre el contexto.
  */
 @Composable
 fun HomeScreen(onOpenContext: () -> Unit, onOpenDiagnostic: (() -> Unit)?) {
+    val android = LocalContext.current
     val status by PipelineStatus.snapshot.collectAsStateWithLifecycle()
     val currentContext by SoundAlertRuntime.contextManager.context.collectAsStateWithLifecycle()
+    val toggles by SoundAlertRuntime.soundToggles.disabled.collectAsStateWithLifecycle()
     // B se recalcula 4 veces por segundo: el pipeline produce una inferencia cada 500 ms.
     val detection by produceState<DetectionDisplay?>(null) {
         val tracker = DetectionTracker()
@@ -79,26 +75,6 @@ fun HomeScreen(onOpenContext: () -> Unit, onOpenDiagnostic: (() -> Unit)?) {
         }
     }
 
-    WatchScreen { scale ->
-        val shown = detection
-        if (shown != null) {
-            DetectingContent(shown, currentContext, status.dbfs, scale)
-        } else {
-            ListeningContent(status, currentContext, onOpenContext, onOpenDiagnostic, scale)
-        }
-    }
-}
-
-/** A · Reposo: casi vacía. Hora, contexto, oreja y los sonidos que se vigilan. */
-@Composable
-private fun BoxScope.ListeningContent(
-    status: PipelineStatus.Snapshot,
-    context: SoundAlertContext,
-    onOpenContext: () -> Unit,
-    onOpenDiagnostic: (() -> Unit)?,
-    scale: WatchScale,
-) = with(scale) {
-    val android = LocalContext.current
     var permissionDenied by remember { mutableStateOf(false) }
     val permissions = arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS)
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
@@ -113,106 +89,130 @@ private fun BoxScope.ListeningContent(
             else -> launcher.launch(permissions)
         }
     }
-    val summary = remember(context) { watchedSummary(context, SoundAlertRuntime.ruleEngine, SoundUi::summaryName) }
 
+    val shown = detection
+    if (shown != null) {
+        val rule = remember(shown.category, currentContext, toggles) { SoundAlertRuntime.ruleEngine.match(shown.category, currentContext) }
+        val note = when {
+            !shown.confirmed -> null
+            !shown.category.alertable -> "Solo registro"
+            rule == null -> "Sin alerta en ${currentContext.label}"
+            else -> null
+        }
+        AnalyzingContent(shown, note)
+    } else {
+        val summary = remember(currentContext, toggles) { watchedSummary(currentContext, SoundAlertRuntime.ruleEngine, SoundUi::summaryName) }
+        ListeningContent(listeningUi(status, permissionDenied, summary), currentContext, toggle, onOpenContext, onOpenDiagnostic)
+    }
+}
+
+/** Lo que muestra A según la fase del pipeline. */
+data class ListeningUi(val title: String, val subtitle: String, val running: Boolean, val listening: Boolean)
+
+fun listeningUi(status: PipelineStatus.Snapshot, permissionDenied: Boolean, summary: List<String>): ListeningUi {
+    val running = status.phase in setOf(Phase.STARTING, Phase.LISTENING, Phase.SILENCED)
+    val watched = summary.joinToString(" · ").ifEmpty { "Ningún sonido activo aquí" }
     val (title, subtitle) = when {
         permissionDenied -> "Sin micrófono" to "Concede el permiso para escuchar"
-        status.phase == Phase.LISTENING -> "Escuchando" to summary.joinToString(" · ")
-        status.phase == Phase.STARTING -> "Iniciando…" to summary.joinToString(" · ")
+        status.phase == Phase.LISTENING -> "Escuchando" to watched
+        status.phase == Phase.STARTING -> "Iniciando…" to watched
         status.phase == Phase.SILENCED -> "Micrófono ocupado" to "Otra app está usando el micrófono"
         status.phase == Phase.ERROR -> "Error" to (status.error ?: "La escucha se detuvo")
-        else -> "En pausa" to "Toca para escuchar"
+        else -> "En pausa" to "Toca el núcleo para escuchar"
     }
-    val listening = status.phase == Phase.LISTENING
+    return ListeningUi(title, subtitle, running, listening = status.phase == Phase.LISTENING)
+}
 
-    // Medidas del mockup A (sobre 192): hora con centro en y≈17, chip 40 × 16 en y≈35,
-    // oreja de 70 centrada en el hueco y título/subtítulo abajo (y≈152 / 166). Si la letra
-    // del reloj es mayor, la oreja es lo único que encoge; los textos caben enteros.
-    Column(
-        modifier = Modifier.fillMaxSize().padding(top = 11.8.mdp, bottom = 21.mdp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Clock()
-        Spacer(Modifier.height(3.6.mdp))
-        ContextChip(context, onOpenContext, scale)
-        Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 3.mdp), contentAlignment = Alignment.Center) {
-            // Oreja: anillo exterior (70,5) + círculo (52) + dibujo de 25,8 de alto. Tocar = activar / pausar.
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fitSquare(70.5.mdp)
+/**
+ * A · Escuchando: hora y chip del contexto arriba, núcleo en el centro y título con
+ * los sonidos vigilados abajo. Medidas sobre 192: hora en y≈18–30, chip en y≈34–50,
+ * disco central de 48 en el centro de la esfera, título en y≈136 y subtítulo en y≈154.
+ */
+@Composable
+fun ListeningContent(
+    ui: ListeningUi,
+    context: SoundAlertContext,
+    onToggle: () -> Unit,
+    onOpenContext: (() -> Unit)?,
+    onOpenDiagnostic: (() -> Unit)?,
+) {
+    val ambient = LocalAmbient.current
+    val ink = if (ambient) SaColors.AmbientContent else SaColors.Ink
+    val secondary = if (ambient) SaColors.AmbientDim else SaColors.Brown
+    WatchScreen(background = if (ambient) SaColors.AmbientBackground else SaColors.Peach) { scale ->
+        with(scale) {
+            JarvisCore(if (ui.listening) CoreMode.LISTENING else CoreMode.PAUSED, Modifier.fillMaxSize())
+            // Centro tocable (72, más que los 48 dp mínimos): activa o pausa la escucha.
+            Box(
+                Modifier
+                    .align(Alignment.Center)
+                    .size(72.mdp)
                     .clip(CircleShape)
-                    .border(1.mdp, if (listening) SaColors.Inactive else SaColors.Surface, CircleShape)
                     .combinedClickable(
                         role = Role.Button,
-                        onClickLabel = if (running) "Pausar la escucha" else "Activar la escucha",
+                        onClickLabel = if (ui.running) "Pausar la escucha" else "Activar la escucha",
                         onLongClick = onOpenDiagnostic,
-                        onClick = toggle,
+                        onClick = onToggle,
                     )
-                    .semantics { contentDescription = if (running) "Escuchando. Toca para pausar" else "En pausa. Toca para escuchar" },
-                contentAlignment = Alignment.Center,
-            ) {
-                val ring = maxHeight
-                Box(Modifier.size(ring * (52f / 70.5f)).clip(CircleShape).background(SaColors.Surface), contentAlignment = Alignment.Center) {
-                    GlyphIcon(
-                        if (running) R.drawable.ic_ear else R.drawable.ic_ear_off,
-                        glyphHeight = ring * (25.8f / 70.5f),
-                        tint = if (running) SaColors.OnSurface else SaColors.Muted,
-                    )
+                    .semantics { contentDescription = if (ui.running) "Escuchando. Toca para pausar" else "En pausa. Toca para escuchar" },
+            )
+            Column(Modifier.align(Alignment.TopCenter).padding(top = 17.mdp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Clock(color = ink)
+                Spacer(Modifier.height(3.6.mdp))
+                if (ambient) {
+                    Text(context.label.uppercase(), style = SaText.labelSmall, color = secondary, maxLines = 1)
+                } else {
+                    ContextChip(context, onOpenContext, scale)
                 }
             }
+            Column(Modifier.align(Alignment.BottomCenter).padding(bottom = 26.mdp), horizontalAlignment = Alignment.CenterHorizontally) {
+                FitText(ui.title, SaText.title, ink, Modifier.width(130.mdp))
+                Spacer(Modifier.height(1.5.mdp))
+                FitText(ui.subtitle, SaText.body, secondary, Modifier.width(112.mdp), maxLines = 2)
+            }
         }
-        FitText(title, SaText.title, SaColors.OnSurface, Modifier.width(150.mdp))
-        Spacer(Modifier.height(1.mdp))
-        FitText(subtitle, SaText.body, SaColors.Secondary, Modifier.width(124.mdp), maxLines = 2)
     }
 }
 
 /**
- * B · Clasificación: lo que la IA está oyendo, con su confianza real. "Analizando"
- * mientras el estabilizador no lo confirma; después se indica si alertará aquí.
+ * B · Analizando: el mismo núcleo, más rápido. Lo que la IA está oyendo con su
+ * confianza real; "IA · CONFIRMADO" cuando el estabilizador ya lo confirmó. Por debajo
+ * del umbral de su categoría no se dispara ninguna alerta (lo decide el estabilizador).
  */
 @Composable
-private fun BoxScope.DetectingContent(detection: DetectionDisplay, context: SoundAlertContext, dbfs: Float, scale: WatchScale) = with(scale) {
-    val rule = remember(detection.category, context) { SoundAlertRuntime.ruleEngine.match(detection.category, context) }
-    val header = if (detection.confirmed) "IA · CONFIRMADO" else "IA · ANALIZANDO"
-    val note = when {
-        !detection.confirmed -> null
-        !detection.category.alertable -> "Solo registro"
-        rule == null -> "Sin alerta en ${context.label}"
-        else -> null
-    }
-    // dBFS del bloque actual → 0..1 para la amplitud de la onda (−60 dB = mínimo). Sin
-    // medida todavía, la onda del mockup.
-    val level = if (dbfs.isNaN()) 1f else ((dbfs + 60f) / 60f).coerceIn(0f, 1f)
-
-    // Medidas del mockup B: cabecera en y≈32, onda de 74 × 54,7 centrada en el hueco,
-    // "Sonido detectado" en y≈144 y la fila "Posible sirena  94%" en y≈162.
-    Column(
-        modifier = Modifier.fillMaxSize().padding(top = 11.mdp, bottom = 23.8.mdp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Clock()
-        Spacer(Modifier.height(6.mdp))
-        FitText(header, SaText.labelSmall.copy(textAlign = TextAlign.Center), SaColors.Secondary, Modifier.width(136.mdp))
-        Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 3.mdp), contentAlignment = Alignment.Center) {
-            Waveform(level, scale)
-        }
-        Column(Modifier.semantics(mergeDescendants = true) {}, horizontalAlignment = Alignment.CenterHorizontally) {
-            FitText("Sonido detectado", SaText.title, SaColors.OnSurface, Modifier.width(156.mdp))
-            Spacer(Modifier.height(2.mdp))
-            Row(Modifier.width(132.mdp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                FitText(SoundUi.possible(detection.category), SaText.body, SaColors.Secondary, Modifier.weight(1f, fill = false), maxLines = 2)
-                Spacer(Modifier.width(4.5.mdp))
-                // Píldora de 19 × 11,3 en el mockup.
-                Text(
-                    String.format(Locale.US, "%d%%", (detection.confidence * 100).roundToInt()),
-                    style = SaText.labelSmall,
-                    color = SaColors.OnSurface,
-                    maxLines = 1,
-                    modifier = Modifier.clip(RoundedCornerShape(50)).background(SaColors.Track).padding(horizontal = 3.2.mdp, vertical = 1.4.mdp),
-                )
+fun AnalyzingContent(detection: DetectionDisplay, note: String?) {
+    val ambient = LocalAmbient.current
+    val ink = if (ambient) SaColors.AmbientContent else SaColors.Ink
+    val secondary = if (ambient) SaColors.AmbientDim else SaColors.Brown
+    WatchScreen(background = if (ambient) SaColors.AmbientBackground else SaColors.Peach) { scale ->
+        with(scale) {
+            JarvisCore(CoreMode.ANALYZING, Modifier.fillMaxSize())
+            FitText(
+                if (detection.confirmed) "IA · CONFIRMADO" else "IA · ANALIZANDO",
+                SaText.labelSmall.copy(textAlign = TextAlign.Center),
+                secondary,
+                Modifier.align(Alignment.TopCenter).padding(top = 30.mdp).width(100.mdp),
+            )
+            Column(
+                Modifier.align(Alignment.BottomCenter).padding(bottom = 22.mdp).semantics(mergeDescendants = true) {},
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                FitText("Sonido detectado", SaText.title, ink, Modifier.width(140.mdp))
+                Spacer(Modifier.height(2.mdp))
+                Row(Modifier.width(118.mdp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                    FitText(SoundUi.possible(detection.category), SaText.body, secondary, Modifier.weight(1f, fill = false))
+                    Spacer(Modifier.width(4.mdp))
+                    // Chip de tinta con la confianza en durazno (8,9:1).
+                    Text(
+                        String.format(Locale.US, "%d%%", (detection.confidence * 100).roundToInt()),
+                        style = SaText.labelSmall,
+                        color = if (ambient) SaColors.AmbientBackground else SaColors.Peach,
+                        maxLines = 1,
+                        modifier = Modifier.clip(RoundedCornerShape(50)).background(ink).padding(horizontal = 3.4.mdp, vertical = 1.4.mdp),
+                    )
+                }
+                if (note != null) FitText(note, SaText.body, secondary, Modifier.width(104.mdp))
             }
-            if (note != null) FitText(note, SaText.body, SaColors.Muted, Modifier.width(116.mdp))
         }
     }
 }

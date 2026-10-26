@@ -2,13 +2,6 @@ package com.soundalert.wear.ui.components
 
 import android.text.format.DateFormat
 import androidx.annotation.DrawableRes
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
@@ -20,11 +13,8 @@ import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
@@ -50,10 +40,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -87,8 +75,6 @@ import com.soundalert.wear.ui.label
 import com.soundalert.wear.ui.theme.SaColors
 import com.soundalert.wear.ui.theme.SaText
 import java.util.Date
-import kotlin.math.PI
-import kotlin.math.sin
 import kotlinx.coroutines.delay
 
 /** Los mockups miden 192 dp de diámetro: [u] escala sus medidas a la pantalla real. */
@@ -316,56 +302,6 @@ private fun glyphBounds(vector: ImageVector): Rect {
 }
 
 /**
- * Onda de la pantalla B: 9 barras (las centrales blancas). Se anima mientras la IA
- * analiza; [level] (0–1, del nivel de entrada real) modula la amplitud.
- */
-@Composable
-fun Waveform(level: Float, scale: WatchScale, modifier: Modifier = Modifier) = with(scale) {
-    val transition = rememberInfiniteTransition(label = "onda")
-    val phase by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = (2 * PI).toFloat(),
-        animationSpec = infiniteRepeatable(tween(1_200, easing = LinearEasing), RepeatMode.Restart),
-        label = "fase",
-    )
-    // Mockup: 9 barras de 5,4 con huecos de 3,2 (≈ 74 × 54,7). Se encoge si no cabe.
-    Canvas(modifier.heightIn(max = WAVE_HEIGHT.mdp).fillMaxHeight().aspectRatio(WAVE_WIDTH / WAVE_HEIGHT, matchHeightConstraintsFirst = true)) {
-        val w = size.width * BAR_WIDTH / WAVE_WIDTH
-        val step = size.width * (BAR_WIDTH + BAR_GAP) / WAVE_WIDTH
-        // Con sonido fuerte, alturas del mockup; más bajo, la onda se reduce hasta el 70 %.
-        val amplitude = 0.7f + 0.3f * level.coerceIn(0f, 1f)
-        BARS.forEachIndexed { i, (base, bright) ->
-            val wobble = 0.9f + 0.1f * sin(phase + i * 0.9f)
-            val h = size.height * base * wobble * amplitude
-            drawRoundRect(
-                color = if (bright) SaColors.OnSurface else SaColors.Inactive,
-                topLeft = Offset(i * step, (size.height - h) / 2),
-                size = Size(w, h),
-                cornerRadius = CornerRadius(w / 2),
-            )
-        }
-    }
-}
-
-private const val BAR_WIDTH = 5.4f
-private const val BAR_GAP = 3.2f
-private const val WAVE_WIDTH = 9 * BAR_WIDTH + 8 * BAR_GAP
-private const val WAVE_HEIGHT = 54.7f
-
-/** Altura relativa de cada barra y si es blanca (central) o gris (lateral), medidas del mockup. */
-private val BARS = listOf(
-    0.22f to false,
-    0.45f to false,
-    0.74f to true,
-    1.0f to true,
-    0.63f to true,
-    0.89f to true,
-    0.52f to false,
-    0.31f to false,
-    0.17f to false,
-)
-
-/**
  * Texto con el tamaño del diseño. Si no cabe, primero usa más líneas (hasta [maxLines]);
  * solo como último recurso reduce la letra, y como mucho a [minSize] (90 %), para que
  * dos textos equivalentes no acaben con tamaños visiblemente distintos. Los "…" quedan
@@ -389,7 +325,3 @@ fun FitText(
         autoSize = TextAutoSize.StepBased(minFontSize = minSize, maxFontSize = style.fontSize, stepSize = 0.25.sp),
     )
 }
-
-/** Elemento central cuadrado (oreja): hasta [max], o menos si los textos necesitan el sitio. */
-fun Modifier.fitSquare(max: Dp): Modifier =
-    heightIn(max = max).fillMaxHeight().aspectRatio(1f, matchHeightConstraintsFirst = true)

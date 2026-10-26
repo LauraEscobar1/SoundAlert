@@ -17,6 +17,7 @@ import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import com.soundalert.wear.BuildConfig
 import com.soundalert.wear.SoundAlertRuntime
 import com.soundalert.wear.ui.alert.AlertScreen
+import com.soundalert.wear.ui.components.LocalAmbient
 import com.soundalert.wear.ui.context.ContextScreen
 import com.soundalert.wear.ui.diagnostic.DiagnosticScreen
 import com.soundalert.wear.ui.history.HistoryScreen
@@ -36,6 +37,7 @@ private object Routes {
  *   (indicador de página abajo; se desliza con el dedo).
  * - D · Contexto: tocando el chip del contexto. Se vuelve deslizando hacia la derecha.
  * - C · Alerta: aparece encima de cualquier pantalla mientras haya una alerta ACTIVE.
+ * - Modo ambiente: se muestra el reposo atenuado, salvo que haya una alerta.
  */
 @Composable
 fun WearApp() {
@@ -60,6 +62,9 @@ fun WearApp() {
             key(onScreen.id) {
                 AlertScreen(onScreen, SoundAlertRuntime.alertConfig, onAcknowledge = { alertManager.acknowledge(onScreen.id) })
             }
+        } else if (LocalAmbient.current) {
+            // Always-on: se ve el reposo (sin animación y en oscuro) desde cualquier pantalla.
+            HomeScreen(onOpenContext = {}, onOpenDiagnostic = null)
         }
     }
 }
