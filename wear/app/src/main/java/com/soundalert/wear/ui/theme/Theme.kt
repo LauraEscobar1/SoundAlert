@@ -14,32 +14,30 @@ import androidx.wear.compose.material3.MaterialTheme
 import com.soundalert.wear.R
 
 /**
- * Tokens del diseño final. Los colores de alerta (Danger, Attention, Information)
- * solo se usan en las pantallas de alerta y en los indicadores de nivel.
+ * Tokens del diseño (paleta rosa "Cherry Marshmallow"). Toda la interfaz toma sus colores
+ * de aquí. Los colores de alerta (Danger, Attention, Information) y la tinta [Ink] solo
+ * se usan en las pantallas de alerta y en los indicadores de nivel.
  *
- * Contraste sobre el durazno: Ink 8,9:1, Brown 7,0:1; sobre el vidrio, Ink 7,0:1.
- * Ink sobre los colores de alerta: peligro 4,7:1, atención 9,3:1, aviso 7,3:1
- * (lo comprueba ContrastTest).
+ * Contraste (lo comprueba ContrastTest): vino sobre el rosa 7,1:1, sobre el vidrio 5,2:1
+ * y sobre las filas tenues 6,2:1; tinta sobre peligro 4,7:1, atención 9,3:1, aviso 7,3:1.
  */
 object SaColors {
-    /** Fondo sólido de reposo, análisis, contexto, sonidos e historial. */
-    val Peach = Color(0xFFF4A07A)
-    /** Texto secundario e iconos. */
-    val Brown = Color(0xFF4A1A0C)
-    /** Títulos y textos importantes (siempre en negrita). */
-    val Ink = Color(0xFF141414)
-    /** Acento del anillo del núcleo y de la sesión en curso. */
-    val Rust = Color(0xFFA33A12)
-    /** Arco de la sesión seleccionada; base del vidrio. */
-    val Orange = Color(0xFFC8501C)
+    /** Fondo sólido de escucha, análisis, contexto, sonidos e historial. */
+    val Background = Color(0xFFEAADC1)
+    /** Títulos, texto e iconos (los títulos en negrita). */
+    val Wine = Color(0xFF5F0C2F)
+    /** Acento: arco del Jarvis, sesión en curso y sesión seleccionada, detalles. */
+    val Accent = Color(0xFFA3245C)
 
-    /** Vidrio de lo seleccionado o activo: naranja al 32 % con borde blanco al 45 %. */
-    val Glass = Orange.copy(alpha = 0.32f)
+    /** Vidrio de lo seleccionado o activo: acento al 25 % con borde blanco al 45 %; encima, vino en negrita. */
+    val Glass = Accent.copy(alpha = 0.25f)
     val GlassBorder = Color.White.copy(alpha = 0.45f)
 
-    /** Filas y pistas tenues (café al 10 %). */
-    val BrownFaint = Brown.copy(alpha = 0.10f)
+    /** Pistas y chips tenues (vino al 10 %). */
+    val WineFaint = Wine.copy(alpha = 0.10f)
 
+    /** Tinta del texto sobre los colores de alerta. */
+    val Ink = Color(0xFF141414)
     val Danger = Color(0xFFF03A2E)
     val Attention = Color(0xFFF5A90A)
     val Information = Color(0xFF5BA8F5)
@@ -49,6 +47,12 @@ object SaColors {
     val AmbientContent = Color(0xFFD9D9D9)
     val AmbientDim = Color(0xFF7A7A7A)
 
+    // Nombres de la paleta anterior: se retiran cuando migre la última pantalla.
+    val Peach = Background
+    val Brown = Wine
+    val Rust = Accent
+    val Orange = Accent
+    val BrownFaint = WineFaint
 }
 
 /**

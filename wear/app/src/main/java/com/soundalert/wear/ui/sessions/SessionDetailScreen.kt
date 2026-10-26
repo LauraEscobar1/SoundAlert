@@ -101,15 +101,15 @@ fun SessionDetailContent(
                 val topLeft = Offset(center.x - r, center.y - r)
                 val arcSize = Size(r * 2, r * 2)
                 // Pista tenue de 4,9 y línea de tinta de 1,6 (medidas del mockup).
-                drawArc(SaColors.Brown.copy(alpha = 0.12f), ARC_START, ARC_SWEEP, useCenter = false, topLeft = topLeft, size = arcSize, style = Stroke(4.9f * u, cap = StrokeCap.Round))
-                drawArc(SaColors.Ink, ARC_START, ARC_SWEEP, useCenter = false, topLeft = topLeft, size = arcSize, style = Stroke(1.6f * u, cap = StrokeCap.Round))
+                drawArc(SaColors.Wine.copy(alpha = 0.12f), ARC_START, ARC_SWEEP, useCenter = false, topLeft = topLeft, size = arcSize, style = Stroke(4.9f * u, cap = StrokeCap.Round))
+                drawArc(SaColors.Wine, ARC_START, ARC_SWEEP, useCenter = false, topLeft = topLeft, size = arcSize, style = Stroke(1.6f * u, cap = StrokeCap.Round))
                 session.events.forEachIndexed { i, event ->
                     // ARC_START está en grados de Canvas (0° = las 3); polar usa la esfera (0° = las 12).
                     val angle = ARC_START + 90f + ARC_SWEEP * sessionFraction(event.atMs, session.startMs, end)
                     val at = polar(angle, r)
                     if (i == selectedEvent) {
-                        drawCircle(SaColors.Peach, radius = 10.4f * u, center = at)
-                        drawCircle(SaColors.Ink, radius = 10.4f * u, center = at, style = Stroke(1f * u))
+                        drawCircle(SaColors.Background, radius = 10.4f * u, center = at)
+                        drawCircle(SaColors.Wine, radius = 10.4f * u, center = at, style = Stroke(1f * u))
                         drawDot(at, 4.5f * u, event.dotColor, 1.3f * u)
                     } else {
                         drawDot(at, 3.5f * u, event.dotColor, 1.3f * u)
@@ -120,10 +120,10 @@ fun SessionDetailContent(
             EndLabel(if (session.ongoing) "ahora" else clockTime(end, is24Hour, zone), x = END_LABEL_X, scale)
 
             // Centros verticales medidos en el mockup (sobre 192).
-            Text("SESIÓN ${index + 1} DE $total", style = SaText.labelSmall, color = SaColors.Brown, maxLines = 1, modifier = Modifier.centerAt(52.1.mdp))
-            GlyphIcon(session.context.icon, glyphHeight = 11.mdp, tint = SaColors.Brown, contentDescription = "Contexto", modifier = Modifier.centerAt(66.3.mdp))
-            FitText(session.context.label, SaText.title, SaColors.Ink, Modifier.centerAt(83.4.mdp).width(110.mdp))
-            FitText(rangeText(session, nowMs, is24Hour, zone), SaText.body, SaColors.Brown, Modifier.centerAt(97.mdp).width(110.mdp))
+            Text("SESIÓN ${index + 1} DE $total", style = SaText.labelSmall, color = SaColors.Wine, maxLines = 1, modifier = Modifier.centerAt(52.1.mdp))
+            GlyphIcon(session.context.icon, glyphHeight = 11.mdp, tint = SaColors.Wine, contentDescription = "Contexto", modifier = Modifier.centerAt(66.3.mdp))
+            FitText(session.context.label, SaText.title, SaColors.Wine, Modifier.centerAt(83.4.mdp).width(110.mdp))
+            FitText(rangeText(session, nowMs, is24Hour, zone), SaText.body, SaColors.Wine, Modifier.centerAt(97.mdp).width(110.mdp))
             EventCard(session, selectedEvent, is24Hour, zone, scale)
         }
     }
@@ -146,19 +146,19 @@ private fun BoxScope.EventCard(session: Session, selected: Int, is24Hour: Boolea
             horizontalArrangement = Arrangement.Center,
         ) {
             if (event == null) {
-                Text("Sin sonidos en esta sesión", style = SaText.row, color = SaColors.Ink, maxLines = 1)
+                Text("Sin sonidos en esta sesión", style = SaText.row, color = SaColors.Wine, maxLines = 1)
             } else {
                 Box(Modifier.size(3.6.mdp).clip(CircleShape).background(event.dotColor))
                 Spacer(Modifier.width(3.mdp))
-                Text("${SoundUi.shortName(event.category)} · ${clockTime(event.atMs, is24Hour, zone)}", style = SaText.row, color = SaColors.Ink, maxLines = 1)
+                Text("${SoundUi.shortName(event.category)} · ${clockTime(event.atMs, is24Hour, zone)}", style = SaText.row, color = SaColors.Wine, maxLines = 1)
                 if (event.acknowledged) {
                     Spacer(Modifier.width(3.mdp))
-                    GlyphIcon(R.drawable.ic_check, glyphHeight = 3.9.mdp, tint = SaColors.Ink, contentDescription = "Confirmada")
+                    GlyphIcon(R.drawable.ic_check, glyphHeight = 3.9.mdp, tint = SaColors.Wine, contentDescription = "Confirmada")
                 }
             }
         }
         if (event != null) {
-            FitText(eventOutcome(event), SaText.body.copy(fontSize = 6.sp), SaColors.Brown, Modifier.centerAt(130.9.mdp).width(100.mdp))
+            FitText(eventOutcome(event), SaText.body.copy(fontSize = 6.sp), SaColors.Wine, Modifier.centerAt(130.9.mdp).width(100.mdp))
         }
     }
 }
@@ -167,7 +167,7 @@ private fun BoxScope.EventCard(session: Session, selected: Int, is24Hour: Boolea
 @Composable
 private fun BoxScope.EndLabel(text: String, x: Float, scale: WatchScale) = with(scale) {
     // Cifras tabulares de Archivo: la monoespaciada del sistema separa los dos puntos ("07: 40").
-    Text(text, style = SaText.clock.copy(fontSize = 5.8.sp, fontFeatureSettings = "tnum"), color = SaColors.Ink, maxLines = 1, modifier = Modifier.centerAt(END_LABEL_Y.mdp, x = x.mdp))
+    Text(text, style = SaText.clock.copy(fontSize = 5.8.sp, fontFeatureSettings = "tnum"), color = SaColors.Wine, maxLines = 1, modifier = Modifier.centerAt(END_LABEL_Y.mdp, x = x.mdp))
 }
 
 /** Arco de 240° en grados de Canvas: empieza abajo a la izquierda (150°) y acaba abajo a la derecha (30°). */

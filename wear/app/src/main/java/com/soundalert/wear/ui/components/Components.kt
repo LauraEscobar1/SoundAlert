@@ -88,7 +88,7 @@ class WatchScale(val u: Float) {
 @Composable
 fun WatchScreen(
     modifier: Modifier = Modifier,
-    background: Color = SaColors.Peach,
+    background: Color = SaColors.Background,
     content: @Composable BoxWithConstraintsScope.(WatchScale) -> Unit,
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxSize().background(background)) {
@@ -104,7 +104,7 @@ private const val MOCKUP_DIAMETER_DP = 192f
  * actualización (si cambian, la hora se corrige sola).
  */
 @Composable
-fun Clock(modifier: Modifier = Modifier, style: TextStyle = SaText.clock, color: Color = SaColors.Ink) {
+fun Clock(modifier: Modifier = Modifier, style: TextStyle = SaText.clock, color: Color = SaColors.Wine) {
     val context = LocalContext.current
     val now = rememberNow()
     Text(DateFormat.getTimeFormat(context).format(Date(now)), modifier = modifier, style = style, color = color, maxLines = 1)
@@ -147,7 +147,7 @@ fun PriorityBars(priority: Priority, scale: WatchScale, modifier: Modifier = Mod
     }
 }
 
-/** Chip del contexto activo ("⌂ CASA"): 32 × 9, café al 10 %. Al tocarlo se abre la pantalla de contexto. */
+/** Chip del contexto activo ("⌂ CASA"): 32 × 9, vino al 10 %. Al tocarlo se abre la pantalla de contexto. */
 @Composable
 fun ContextChip(context: SoundAlertContext, onClick: (() -> Unit)?, scale: WatchScale, modifier: Modifier = Modifier) = with(scale) {
     val clickable = if (onClick != null) Modifier.clickable(onClickLabel = "Cambiar contexto", role = Role.Button, onClick = onClick) else Modifier
@@ -155,19 +155,19 @@ fun ContextChip(context: SoundAlertContext, onClick: (() -> Unit)?, scale: Watch
         modifier = modifier
             .height(8.8.mdp)
             .clip(RoundedCornerShape(50))
-            .background(SaColors.BrownFaint)
+            .background(SaColors.WineFaint)
             .then(clickable)
             .semantics { contentDescription = "Contexto: ${context.label}" }
             .padding(start = 6.mdp, end = 5.8.mdp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        GlyphIcon(context.icon, glyphHeight = 3.4.mdp, tint = SaColors.Brown)
+        GlyphIcon(context.icon, glyphHeight = 3.4.mdp, tint = SaColors.Wine)
         Spacer(Modifier.width(2.6.mdp))
-        Text(context.label.uppercase(), style = SaText.labelSmall, color = SaColors.Brown, maxLines = 1)
+        Text(context.label.uppercase(), style = SaText.labelSmall, color = SaColors.Wine, maxLines = 1)
     }
 }
 
-/** Vidrio: naranja al 32 % con borde blanco al 45 %. Lo que va encima, en tinta y negrita. */
+/** Vidrio: acento al 25 % con borde blanco al 45 %. Lo que va encima, en vino y negrita. */
 fun Modifier.glass(shape: Shape = RoundedCornerShape(50)): Modifier =
     clip(shape).background(SaColors.Glass).border(1.dp, SaColors.GlassBorder, shape)
 
@@ -213,12 +213,12 @@ fun Modifier.centerAt(y: Dp, x: Dp = 0.dp): Modifier = layout { measurable, cons
     }
 }
 
-/** Puntitos de página: el actual en tinta, el resto en café al 35 %. */
+/** Puntitos de página: el actual en vino, el resto en vino al 35 %. */
 @Composable
 fun PageDots(count: Int, current: Int, scale: WatchScale, modifier: Modifier = Modifier) = with(scale) {
     Row(modifier.semantics { contentDescription = "Página ${current + 1} de $count" }, horizontalArrangement = Arrangement.spacedBy(2.6.mdp)) {
         repeat(count) { i ->
-            Box(Modifier.size(2.8.mdp).clip(CircleShape).background(if (i == current) SaColors.Ink else SaColors.Brown.copy(alpha = 0.35f)))
+            Box(Modifier.size(2.8.mdp).clip(CircleShape).background(if (i == current) SaColors.Wine else SaColors.Wine.copy(alpha = 0.35f)))
         }
     }
 }
@@ -263,17 +263,17 @@ fun GlassToast(state: ToastState, scale: WatchScale, modifier: Modifier = Modifi
     Box(
         modifier
             .clip(shape)
-            .background(SaColors.Peach)
+            .background(SaColors.Background)
             .glass(shape)
             .semantics { liveRegion = LiveRegionMode.Polite }
             .padding(horizontal = 6.5.mdp, vertical = 3.mdp),
         contentAlignment = Alignment.Center,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(message, style = SaText.row.copy(fontSize = 6.3.sp), color = SaColors.Ink, maxLines = 1)
+            Text(message, style = SaText.row.copy(fontSize = 6.3.sp), color = SaColors.Wine, maxLines = 1)
             if (state.check) {
                 Spacer(Modifier.width(3.mdp))
-                GlyphIcon(R.drawable.ic_check, glyphHeight = 3.3.mdp, tint = SaColors.Ink, contentDescription = "Hecho")
+                GlyphIcon(R.drawable.ic_check, glyphHeight = 3.3.mdp, tint = SaColors.Wine, contentDescription = "Hecho")
             }
         }
     }

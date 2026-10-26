@@ -26,25 +26,25 @@ class ContrastTest {
         assertTrue("$name: %.2f:1".format(ratio), ratio >= 4.5)
     }
 
-    private val glass = SaColors.Glass.compositeOver(SaColors.Peach)
+    @Test
+    fun `paleta rosa Cherry Marshmallow`() {
+        assertEquals(Color(0xFFEAADC1), SaColors.Background)
+        assertEquals(Color(0xFF5F0C2F), SaColors.Wine)
+        assertEquals(Color(0xFFA3245C), SaColors.Accent)
+        assertEquals(SaColors.Accent.copy(alpha = 0.25f), SaColors.Glass)
+    }
 
     @Test
-    fun `textos sobre el durazno, el vidrio y las filas tenues`() {
-        assertReadable("tinta / durazno", SaColors.Ink, SaColors.Peach)
-        assertReadable("café / durazno", SaColors.Brown, SaColors.Peach)
-        assertReadable("tinta / vidrio", SaColors.Ink, glass)
-        assertReadable("café / fila tenue", SaColors.Brown, SaColors.BrownFaint.compositeOver(SaColors.Peach))
-        assertReadable("durazno / chip de tinta", SaColors.Peach, SaColors.Ink)
+    fun `textos en vino sobre el rosa, el vidrio y lo tenue`() {
+        assertReadable("vino / rosa", SaColors.Wine, SaColors.Background)
+        assertReadable("vino / vidrio", SaColors.Wine, SaColors.Glass.compositeOver(SaColors.Background))
+        assertReadable("vino / tenue", SaColors.Wine, SaColors.WineFaint.compositeOver(SaColors.Background))
+        assertReadable("rosa / chip de vino", SaColors.Background, SaColors.Wine)
     }
 
     @Test
     fun `textos en tinta sobre los colores de alerta`() {
         for (priority in Priority.entries) assertReadable("tinta / ${priority.name}", SaColors.Ink, priority.color)
-    }
-
-    @Test
-    fun `el rojo de peligro es F03A2E y da al menos 4,5 a 1 con la tinta`() {
-        assertEquals(Color(0xFFF03A2E), SaColors.Danger)
         assertEquals(4.69, contrast(SaColors.Ink, SaColors.Danger), 0.01)
     }
 
