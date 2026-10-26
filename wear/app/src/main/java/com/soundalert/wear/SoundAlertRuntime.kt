@@ -111,7 +111,7 @@ object SoundAlertRuntime {
 
     /**
      * Empieza a agrupar en sesiones (idempotente). Lo llama SoundAlertApp: escucha,
-     * contexto y alertas son estado del proceso, igual que el tracker.
+     * contexto, detecciones y alertas son estado del proceso, igual que el tracker.
      */
     fun startSessions(context: Context) {
         synchronized(this) {
@@ -121,9 +121,9 @@ object SoundAlertRuntime {
         val alerts = alertManager(context.applicationContext).alerts
         val listening = PipelineStatus.snapshot.map { it.phase == PipelineStatus.Phase.LISTENING || it.phase == PipelineStatus.Phase.SILENCED }.distinctUntilChanged()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-            combine(listening, contextManager.context, alerts, ::Triple).collect { (isListening, current, list) ->
-                sessionTracker.update(isListening, current, list)
-            }
+            combine(listening, contextManager.context, detectionHistory.detections, alerts) { isListening, current, detections, list ->
+                sessionTracker.update(isListening, current, detections, list)
+            }.collect {}
         }
     }
 

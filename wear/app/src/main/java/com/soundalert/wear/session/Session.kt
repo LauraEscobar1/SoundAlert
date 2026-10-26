@@ -12,15 +12,18 @@ import java.io.File
 import java.io.IOException
 
 /**
- * Alerta ocurrida durante una sesión: tipo de sonido, nivel, hora y si la persona la
- * confirmó. [alertId] enlaza con la Alert para actualizar la confirmación.
+ * Sonido detectado durante una sesión: tipo, nivel, hora y si la persona confirmó su
+ * alerta. [id] es el de la detección (ContextualDetection.id). [priority] null: se
+ * detectó pero no alertó (sin regla en ese contexto, enfriamiento o solo registro).
+ * [alertId] enlaza con la Alert, si la hubo, para seguir su confirmación.
  */
 data class SessionEvent(
-    val alertId: String,
+    val id: String,
     val category: SoundCategory,
-    val priority: Priority,
+    val priority: Priority?,
     val atMs: Long,
     val acknowledged: Boolean,
+    val alertId: String? = null,
 )
 
 /**
@@ -97,9 +100,10 @@ object SessionJson {
             JSONArray(
                 session.events.map {
                     JSONObject()
-                        .put("alertId", it.alertId)
+                        .put("id", it.id)
+                        .put("alertId", it.alertId ?: JSONObject.NULL)
                         .put("category", it.category.name)
-                        .put("priority", it.priority.name)
+                        .put("priority", it.priority?.name ?: JSONObject.NULL)
                         .put("atMs", it.atMs)
                         .put("acknowledged", it.acknowledged)
                 },
@@ -116,12 +120,15 @@ object SessionJson {
             endMs = if (json.isNull("endMs")) null else json.getLong("endMs"),
             events = (0 until events.length()).mapNotNull { i ->
                 val event = events.getJSONObject(i)
+                // Formato anterior: solo alertas, identificadas por su alertId.
+                val alertId = if (event.isNull("alertId")) null else event.optString("alertId").ifEmpty { null }
                 SessionEvent(
-                    alertId = event.getString("alertId"),
+                    id = event.optString("id").ifEmpty { alertId ?: return@mapNotNull null },
                     category = SoundCategory.entries.firstOrNull { it.name == event.optString("category") } ?: return@mapNotNull null,
-                    priority = Priority.entries.firstOrNull { it.name == event.optString("priority") } ?: return@mapNotNull null,
+                    priority = if (event.isNull("priority")) null else Priority.entries.firstOrNull { it.name == event.optString("priority") } ?: return@mapNotNull null,
                     atMs = event.getLong("atMs"),
                     acknowledged = event.optBoolean("acknowledged"),
+                    alertId = alertId,
                 )
             },
         )

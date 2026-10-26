@@ -109,9 +109,9 @@ fun SessionDetailContent(
                     if (i == selectedEvent) {
                         drawCircle(SaColors.Peach, radius = 10.4f * u, center = at)
                         drawCircle(SaColors.Ink, radius = 10.4f * u, center = at, style = Stroke(1f * u))
-                        drawDot(at, 4.5f * u, event.priority.color, 1.3f * u)
+                        drawDot(at, 4.5f * u, event.dotColor, 1.3f * u)
                     } else {
-                        drawDot(at, 3.5f * u, event.priority.color, 1.3f * u)
+                        drawDot(at, 3.5f * u, event.dotColor, 1.3f * u)
                     }
                 }
             }
@@ -145,9 +145,9 @@ private fun BoxScope.EventCard(session: Session, selected: Int, is24Hour: Boolea
             horizontalArrangement = Arrangement.Center,
         ) {
             if (event == null) {
-                Text("Sin alertas en esta sesión", style = SaText.row, color = SaColors.Ink, maxLines = 1)
+                Text("Sin sonidos en esta sesión", style = SaText.row, color = SaColors.Ink, maxLines = 1)
             } else {
-                Box(Modifier.size(3.6.mdp).clip(CircleShape).background(event.priority.color))
+                Box(Modifier.size(3.6.mdp).clip(CircleShape).background(event.dotColor))
                 Spacer(Modifier.width(3.mdp))
                 Text("${SoundUi.shortName(event.category)} · ${clockTime(event.atMs, is24Hour, zone)}", style = SaText.row, color = SaColors.Ink, maxLines = 1)
                 if (event.acknowledged) {

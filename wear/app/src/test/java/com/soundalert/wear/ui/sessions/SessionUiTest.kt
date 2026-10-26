@@ -15,7 +15,7 @@ class SessionUiTest {
     private val utc = ZoneOffset.UTC
     private fun at(time: String) = Instant.parse("2026-10-07T${time}:00Z").toEpochMilli()
 
-    private fun event(priority: Priority, acknowledged: Boolean = false, atMs: Long = 0) =
+    private fun event(priority: Priority?, acknowledged: Boolean = false, atMs: Long = 0) =
         SessionEvent("a", SoundCategory.SIREN, priority, atMs, acknowledged)
 
     @Test
@@ -55,7 +55,9 @@ class SessionUiTest {
     fun `conteo por nivel del mas urgente al menos`() {
         val events = listOf(event(Priority.INFORMATION), event(Priority.DANGER), event(Priority.INFORMATION))
         assertEquals(listOf(Priority.DANGER to "1 peligro", Priority.INFORMATION to "2 avisos"), levelCounts(events))
-        assertEquals(emptyList<Pair<Priority, String>>(), levelCounts(emptyList()))
+        assertEquals(emptyList<Pair<Priority?, String>>(), levelCounts(emptyList()))
+        // Los sonidos que no alertaron van al final.
+        assertEquals(listOf(Priority.ATTENTION to "1 atención", null to "2 sin alerta"), levelCounts(listOf(event(null), event(Priority.ATTENTION), event(null))))
     }
 
     @Test
@@ -71,5 +73,7 @@ class SessionUiTest {
         assertEquals("Confirmada por ti", eventOutcome(event(Priority.DANGER, acknowledged = true)))
         assertEquals("Sin confirmar", eventOutcome(event(Priority.DANGER)))
         assertEquals("Se cerró sola", eventOutcome(event(Priority.INFORMATION)))
+        assertEquals("Sin alerta en este contexto", eventOutcome(event(null)))
+        assertEquals("Solo registro", eventOutcome(SessionEvent("b", SoundCategory.BELL, null, 0, false)))
     }
 }

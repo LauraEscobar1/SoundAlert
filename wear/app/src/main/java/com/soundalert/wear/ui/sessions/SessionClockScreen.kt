@@ -46,6 +46,7 @@ import androidx.wear.compose.material3.Text
 import com.soundalert.wear.SoundAlertRuntime
 import com.soundalert.wear.rules.Priority
 import com.soundalert.wear.session.Session
+import com.soundalert.wear.session.SessionEvent
 import com.soundalert.wear.ui.color
 import com.soundalert.wear.ui.components.FitText
 import com.soundalert.wear.ui.components.GlyphIcon
@@ -111,7 +112,7 @@ fun SessionClockContent(
                 sessions.forEachIndexed { i, s -> if (i != selected) drawSession(s, nowMs, zone, u, if (s.ongoing) SaColors.Rust else SaColors.Brown.copy(alpha = 0.45f), TRACK_WIDTH) }
                 session?.let { drawSession(it, nowMs, zone, u, SaColors.Orange, SELECTED_WIDTH) }
                 sessions.forEach { s ->
-                    s.events.forEach { e -> drawDot(polar(dialAngle(e.atMs, zone), TRACK_RADIUS * u), 3.25f * u, e.priority.color, 1.3f * u) }
+                    s.events.forEach { e -> drawDot(polar(dialAngle(e.atMs, zone), TRACK_RADIUS * u), 3.25f * u, e.dotColor, 1.3f * u) }
                 }
             }
             listOf("12" to 0f, "3" to 90f, "6" to 180f, "9" to 270f).forEach { (label, angle) ->
@@ -153,7 +154,7 @@ private fun BoxScope.SessionCenter(
 
 /** Chip con el conteo por nivel ("● 2 avisos"); el punto lleva el color del nivel. */
 @Composable
-private fun LevelChip(counts: List<Pair<Priority, String>>, scale: WatchScale, modifier: Modifier) = with(scale) {
+private fun LevelChip(counts: List<Pair<Priority?, String>>, scale: WatchScale, modifier: Modifier) = with(scale) {
     val style = SaText.row.copy(fontSize = 6.3.sp)
     Row(
         modifier.height(11.mdp).clip(CircleShape).background(SaColors.BrownFaint).padding(horizontal = 4.8.mdp),
@@ -161,11 +162,11 @@ private fun LevelChip(counts: List<Pair<Priority, String>>, scale: WatchScale, m
         horizontalArrangement = Arrangement.spacedBy(4.mdp),
     ) {
         if (counts.isEmpty()) {
-            Text("Sin alertas", style = style, color = SaColors.Brown, maxLines = 1)
+            Text("Sin sonidos", style = style, color = SaColors.Brown, maxLines = 1)
         }
         counts.forEach { (priority, text) ->
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(3.2.mdp).clip(CircleShape).background(priority.color))
+                Box(Modifier.size(3.2.mdp).clip(CircleShape).background(priority?.color ?: SILENT_DOT))
                 Spacer(Modifier.width(2.mdp))
                 Text(text, style = style, color = SaColors.Brown, maxLines = 1)
             }
@@ -212,6 +213,12 @@ private fun DrawScope.drawDialTicks(u: Float) {
         )
     }
 }
+
+/** Color del punto de un sonido: el de su nivel, o neutro si no alertó. */
+internal val SessionEvent.dotColor: Color get() = priority?.color ?: SILENT_DOT
+
+/** Sonidos que no alertaron: punto en café al 45 %. */
+internal val SILENT_DOT = SaColors.Brown.copy(alpha = 0.45f)
 
 /** Punto de un evento con borde del color del fondo, para que se distinga sobre el arco. */
 internal fun DrawScope.drawDot(at: Offset, radius: Float, color: Color, border: Float) {

@@ -56,12 +56,18 @@ fun rangeText(session: Session, nowMs: Long, is24Hour: Boolean, zone: ZoneId = Z
     return "${clockTime(session.startMs, is24Hour, zone)} – $end · ${durationText(session.endOr(nowMs) - session.startMs)}"
 }
 
-/** Conteo por nivel, del más urgente al menos ("2 avisos"). Niveles sin alertas no aparecen. */
-fun levelCounts(events: List<SessionEvent>): List<Pair<Priority, String>> =
-    Priority.entries.mapNotNull { priority ->
+/**
+ * Conteo por nivel, del más urgente al menos ("2 avisos"), y al final los sonidos que no
+ * alertaron (nivel null, "3 sin alerta"). Lo que no ocurrió no aparece.
+ */
+fun levelCounts(events: List<SessionEvent>): List<Pair<Priority?, String>> {
+    val levels = Priority.entries.mapNotNull { priority ->
         val count = events.count { it.priority == priority }
         if (count == 0) null else priority to "$count ${levelNoun(priority, count)}"
     }
+    val silent = events.count { it.priority == null }
+    return levels + listOfNotNull(if (silent > 0) null to "$silent sin alerta" else null)
+}
 
 private fun levelNoun(priority: Priority, count: Int): String = when (priority) {
     Priority.DANGER -> if (count == 1) "peligro" else "peligros"
@@ -69,8 +75,9 @@ private fun levelNoun(priority: Priority, count: Int): String = when (priority) 
     Priority.INFORMATION -> if (count == 1) "aviso" else "avisos"
 }
 
-/** Qué pasó con la alerta: peligro solo se cierra al confirmarlo; atención y aviso, también solos. */
+/** Qué pasó con el sonido: peligro solo se cierra al confirmarlo; atención y aviso, también solos. */
 fun eventOutcome(event: SessionEvent): String = when {
+    event.priority == null -> if (event.category.alertable) "Sin alerta en este contexto" else "Solo registro"
     event.acknowledged -> "Confirmada por ti"
     event.priority == Priority.DANGER -> "Sin confirmar"
     else -> "Se cerró sola"
