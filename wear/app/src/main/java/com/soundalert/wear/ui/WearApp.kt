@@ -77,7 +77,7 @@ private fun HomePager(onOpenContext: () -> Unit, onOpenDiagnostic: (() -> Unit)?
             AnimatedPage(pageIndex = page, pagerState = pagerState) {
                 when (page) {
                     0 -> HomeScreen(onOpenContext, onOpenDiagnostic)
-                    1 -> SoundsScreen()
+                    1 -> SoundsScreen(visible = pagerState.currentPage == page)
                     else -> HistoryScreen(visible = pagerState.currentPage == page)
                 }
             }

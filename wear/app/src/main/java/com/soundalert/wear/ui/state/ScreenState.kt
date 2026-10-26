@@ -73,26 +73,21 @@ fun alertOnScreen(alerts: List<Alert>): Alert? =
     alerts.filter { it.status == AlertStatus.ACTIVE }
         .minWithOrNull(compareBy<Alert> { it.priority.ordinal }.thenByDescending { it.createdAtMs })
 
-/** Fila de la pantalla E. [priority] null: el sonido no alerta en este contexto. */
-data class SoundRow(val category: SoundCategory, val priority: Priority?) {
-    val enabled: Boolean get() = priority != null
-    val recordOnly: Boolean get() = !category.alertable
-}
+/** Celda del panal G. [enabled] false: el usuario la apagó en este contexto (no alerta). */
+data class SoundCell(val category: SoundCategory, val priority: Priority, val enabled: Boolean)
 
 /**
- * Pantalla E: las reglas REALES del reloj para [context] (RuleEngine). Primero las
- * activas por prioridad, después las que no alertan aquí y al final las de solo
- * registro. Solo categorías del catálogo actual del reloj.
+ * Pantalla G: los sonidos REALES que se pueden vigilar en [context] (reglas de la tabla
+ * del RuleEngine), encendidos o apagados por el usuario. Peligro primero, luego atención
+ * y aviso. Las categorías de solo registro y UNKNOWN no tienen regla y no aparecen.
  */
-fun soundRows(context: SoundAlertContext, rules: RuleEngine): List<SoundRow> {
-    val active = rules.rulesFor(context).associate { it.category to it.priority }
-    val enabled = active.entries
-        .sortedWith(compareBy({ it.value.ordinal }, { it.key.ordinal }))
-        .map { SoundRow(it.key, it.value) }
-    val disabled = SoundCategory.ALERTABLE.filter { it !in active }.map { SoundRow(it, null) }
-    val recordOnly = SoundCategory.KNOWN.filterNot { it.alertable }.map { SoundRow(it, null) }
-    return enabled + disabled + recordOnly
-}
+fun soundCells(context: SoundAlertContext, rules: RuleEngine): List<SoundCell> =
+    rules.availableRules(context)
+        .sortedWith(compareBy({ it.priority.ordinal }, { it.category.ordinal }))
+        .map { SoundCell(it.category, it.priority, rules.isEnabled(context, it.category)) }
+
+/** Celdas por página del panal (filas de 2 – 3 – 2). */
+const val CELLS_PER_PAGE = 7
 
 /** Orden del resumen de la pantalla A: lo más reconocible de cada contexto primero. */
 private val SUMMARY_ORDER = listOf(
