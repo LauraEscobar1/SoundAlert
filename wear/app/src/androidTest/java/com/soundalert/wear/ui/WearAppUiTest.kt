@@ -25,6 +25,8 @@ import com.soundalert.wear.context.SoundAlertContext
 import com.soundalert.wear.detection.DetectionEvent
 import com.soundalert.wear.pipeline.PipelineStatus
 import com.soundalert.wear.rules.Priority
+import androidx.compose.ui.test.performRotaryScrollInput
+import kotlin.math.abs
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -107,24 +109,52 @@ class WearAppUiTest {
         compose.waitUntil(3_000) { compose.onAllNodes(hasText("Sesiones")).fetchSemanticsNodes().isNotEmpty() }
     }
 
-    @Test
-    fun tocarUnaCeldaDelPanalApagaElSonidoEnEseContexto() {
-        compose.onRoot().performTouchInput { swipeLeft() }
-        // Segunda fila de Casa, visible sin desplazar: vidrio roto (atención).
-        compose.waitUntil(3_000) { compose.onAllNodes(hasContentDescription("Vidrio roto, atención")).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNode(hasContentDescription("Vidrio roto, atención")).performClick()
-        compose.waitUntil(3_000) { compose.onAllNodes(hasText("Vidrio roto desactivado")).fetchSemanticsNodes().isNotEmpty() }
-        // La confirmación ocupa el lugar del encabezado: termina por encima de donde empiezan las celdas.
-        val message = compose.onNode(hasText("Vidrio roto desactivado")).getBoundsInRoot()
-        val screen = compose.onRoot().getBoundsInRoot()
-        assertTrue("mensaje en ${message.bottom}", message.bottom <= screen.top + (screen.bottom - screen.top) * 45f / 192f)
-        assertNull(SoundAlertRuntime.ruleEngine.match(SoundCategory.GLASS_BREAK, SoundAlertContext.CASA))
-        assertEquals(Priority.ATTENTION, SoundAlertRuntime.ruleEngine.match(SoundCategory.GLASS_BREAK, SoundAlertContext.OTRO)?.priority)
+    private fun crown(steps: Int) {
+        val px = with(compose.density) { 40.dp.toPx() }
+        repeat(abs(steps)) {
+            compose.onRoot().performRotaryScrollInput { rotateToScrollVertically(if (steps > 0) px else -px) }
+            compose.waitForIdle()
+        }
+    }
 
-        // Peligro: candado, siempre activo; tocarlo solo lo recuerda.
+    @Test
+    fun laRuedaRecorreLosSonidosEnOrdenYApagaUnSonidoEnEseContexto() {
+        compose.onRoot().performTouchInput { swipeLeft() }
+        // Casa: primero los de peligro (con candado y siempre activos), luego atención y aviso.
+        compose.waitUntil(3_000) { compose.onAllNodes(hasContentDescription("Sirena, peligro")).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Siempre activo").assertExists()
+
+        // Peligro bloqueado: tocarlo solo lo recuerda.
         compose.onNode(hasContentDescription("Sirena, peligro")).performClick()
         compose.waitUntil(3_000) { compose.onAllNodes(hasText("Siempre activo por seguridad")).fetchSemanticsNodes().isNotEmpty() }
         assertEquals(Priority.DANGER, SoundAlertRuntime.ruleEngine.match(SoundCategory.SIREN, SoundAlertContext.CASA)?.priority)
+
+        // La corona gira la rueda un sonido por clic: Incendio, Humo, Alarma, Vidrio roto.
+        crown(4)
+        compose.waitUntil(3_000) { compose.onAllNodes(hasContentDescription("Vidrio roto, atención")).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasContentDescription("Vidrio roto, atención")).performClick()
+        compose.waitUntil(3_000) { compose.onAllNodes(hasText("Desactivado")).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Apagado").assertExists()
+        assertNull(SoundAlertRuntime.ruleEngine.match(SoundCategory.GLASS_BREAK, SoundAlertContext.CASA))
+        assertEquals(Priority.ATTENTION, SoundAlertRuntime.ruleEngine.match(SoundCategory.GLASS_BREAK, SoundAlertContext.OTRO)?.priority)
+        // La confirmación va en la columna de información: debajo del encabezado y a la derecha del círculo grande.
+        val message = compose.onNode(hasText("Desactivado")).getBoundsInRoot()
+        val screen = compose.onRoot().getBoundsInRoot()
+        val dp = (screen.bottom - screen.top) / 192f
+        assertTrue("mensaje en ${message.top}", message.top >= screen.top + dp * 45f)
+        assertTrue("mensaje en ${message.left}", message.left >= screen.left + dp * 100f)
+
+        // Activarlo de nuevo, con el interruptor.
+        compose.onNodeWithText("Apagado").performClick()
+        compose.waitUntil(3_000) { compose.onAllNodes(hasText("Activado")).fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(Priority.ATTENTION, SoundAlertRuntime.ruleEngine.match(SoundCategory.GLASS_BREAK, SoundAlertContext.CASA)?.priority)
+
+        // Al final de la lista, en lugar del siguiente sonido.
+        crown(20)
+        compose.waitUntil(3_000) { compose.onAllNodes(hasText("FIN DE LA LISTA")).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasContentDescription("Agua, aviso")).assertExists()
+        crown(-20)
+        compose.waitUntil(3_000) { compose.onAllNodes(hasContentDescription("Sirena, peligro")).fetchSemanticsNodes().isNotEmpty() }
     }
 
     @Test
