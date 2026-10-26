@@ -94,7 +94,7 @@ private fun BoxScope.Danger(alert: Alert, onAcknowledge: () -> Unit, scale: Watc
         modifier = Modifier.fillMaxSize().padding(top = 16.6.mdp, bottom = 14.7.mdp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        PriorityHeader(alert.priority, onColor = Color.Black, inactive = Color.Black, scale = scale)
+        PriorityHeader(alert.priority, scale = scale)
         AlertGlyph(alert, glyphHeight = 39.mdp, maxGlyphWidth = 53.mdp, tint = Color.Black)
         FitText(SoundUi.alertTitle(alert.category).uppercase(), SaText.alertTitle, Color.Black, Modifier.width(140.mdp), maxLines = 3)
         Spacer(Modifier.height(5.mdp))
@@ -125,7 +125,7 @@ private fun BoxScope.Attention(alert: Alert, scale: WatchScale) = with(scale) {
         modifier = Modifier.fillMaxSize().padding(top = 16.7.mdp, bottom = 24.mdp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        PriorityHeader(alert.priority, onColor = SaColors.Attention, inactive = SaColors.Inactive, scale = scale)
+        PriorityHeader(alert.priority, scale = scale)
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             val circle = minOf(64.7.mdp, maxHeight)
             Box(Modifier.size(circle).clip(CircleShape).background(SaColors.Attention), contentAlignment = Alignment.Center) {
@@ -155,7 +155,7 @@ private fun BoxScope.Information(alert: Alert, config: AlertConfig, scale: Watch
         modifier = Modifier.fillMaxSize().padding(top = 16.6.mdp, bottom = 19.7.mdp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        PriorityHeader(alert.priority, onColor = SaColors.Information, inactive = SaColors.Inactive, scale = scale)
+        PriorityHeader(alert.priority, scale = scale)
         AlertGlyph(alert, glyphHeight = 36.2.mdp, maxGlyphWidth = 40.mdp, tint = SaColors.Information)
         FitText(SoundUi.alertTitle(alert.category), SaText.title, SaColors.OnSurface, Modifier.width(110.mdp), maxLines = 3)
         Spacer(Modifier.height(2.5.mdp))
