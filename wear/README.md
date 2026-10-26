@@ -49,7 +49,7 @@ Jetpack Compose para Wear OS (Material 3, `ui/`). Las pantallas solo **leen** el
 
 | Pantalla | Qué muestra | De dónde salen los datos |
 |----------|-------------|--------------------------|
-| A · Escuchando | Hora, chip de vidrio del contexto, núcleo animado (anillos, halo y 5 barras; tocar = activar/pausar), "Escuchando" y 3 sonidos vigilados | `PipelineStatus.phase`, `ContextManager`, `RuleEngine.rulesFor` |
+| A · Escuchando | Bloque centrado: hora, chip del contexto, emblema Jarvis de 88 dp (marcas, arco que gira, anillo interior, halo y 5 barras; tocar = activar/pausar), "Escuchando" y 3 sonidos vigilados | `PipelineStatus.phase`, `ContextManager`, `RuleEngine.rulesFor` |
 | B · Analizando | "IA · ANALIZANDO" / "IA · CONFIRMADO", el mismo núcleo más rápido (9 barras), "Sonido detectado", "Posible sirena" y la confianza en un chip | Clases principales de YAMNet (≥ umbral de fin 0,15) y último `Started` del estabilizador (`ui/state/DetectionTracker`). Por debajo del umbral de su categoría no hay alerta |
 | C · Peligro | Pantalla roja, 3 barras, icono con 3 ondas, titular, "SIGUE SONANDO" mientras suena, anillo negro y "Entendido" | La alerta ACTIVE más urgente del `AlertManager`; no se cierra sola |
 | D · Atención | Pantalla ámbar, 2 barras, 2 ondas, sin botón; anillo y barra de cuenta atrás de 10 s | `AlertManager` (`attentionTimeoutMs`) |
@@ -59,7 +59,7 @@ Jetpack Compose para Wear OS (Material 3, `ui/`). Las pantallas solo **leen** el
 | H · Reloj de sesiones | Esfera de 12 h: cada sesión de las últimas 12 h es un arco en su franja (seleccionada en naranja, en curso en óxido) y cada alerta un punto de su color. La corona elige sesión | `SessionTracker` |
 | I · Detalle de sesión | Arco de 240° del inicio al fin con cada alerta en su minuto; tarjeta con la alerta seleccionada y si se confirmó | `SessionTracker` |
 
-Navegación: A → G → H deslizando en horizontal (indicador de página abajo); F tocando el chip del contexto e I tocando la esfera de H (se vuelve deslizando a la derecha); C, D y E aparecen encima de cualquier pantalla. En builds de depuración, una pulsación larga en el núcleo abre la pantalla de diagnóstico.
+Navegación: A → G → H deslizando en horizontal (los puntitos de página van bajo el subtítulo de A, dentro de la zona segura; no hay indicador superpuesto en las demás); F tocando el chip del contexto e I tocando la esfera de H (se vuelve deslizando a la derecha); C, D y E aparecen encima de cualquier pantalla. En builds de depuración, una pulsación larga en el núcleo abre la pantalla de diagnóstico.
 
 - **Sonidos por contexto** (`rules/SoundToggles.kt`): lo que se apaga en G se guarda por contexto (`SharedPreferences`) y el `RuleEngine` lo trata como "sin regla": el sonido se sigue detectando, pero no alerta ni vibra. Encenderlo devuelve su prioridad de la tabla. Se puede apagar cualquier sonido, también los de peligro.
 - **Sesiones** (`session/`): una sesión empieza al reanudar la escucha o al cambiar de contexto mientras se escucha, y termina con el siguiente cambio o al pausar. Cada alerta se anota en su sesión y se marca al confirmarla. Se guardan en `files/sessions.json` (JSON atómico, como la cola de sincronización; el proyecto no usa Room ni DataStore). Si el proceso muere con una sesión abierta, se cierra en su último momento conocido. Logs: `adb logcat -s SA/Session`.

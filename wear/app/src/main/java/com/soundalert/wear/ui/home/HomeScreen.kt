@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -31,7 +32,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.em
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.material3.Text
 import com.soundalert.wear.SoundAlertRuntime
@@ -46,6 +47,7 @@ import com.soundalert.wear.ui.components.CoreMode
 import com.soundalert.wear.ui.components.FitText
 import com.soundalert.wear.ui.components.JarvisCore
 import com.soundalert.wear.ui.components.LocalAmbient
+import com.soundalert.wear.ui.components.PageDots
 import com.soundalert.wear.ui.components.WatchScreen
 import com.soundalert.wear.ui.state.DetectionDisplay
 import com.soundalert.wear.ui.state.DetectionTracker
@@ -61,7 +63,7 @@ import kotlin.math.roundToInt
  * pipeline. Tocar el núcleo activa o pausa la escucha; el chip abre el contexto.
  */
 @Composable
-fun HomeScreen(onOpenContext: () -> Unit, onOpenDiagnostic: (() -> Unit)?) {
+fun HomeScreen(onOpenContext: () -> Unit, onOpenDiagnostic: (() -> Unit)?, pageDots: Pair<Int, Int>? = null) {
     val android = LocalContext.current
     val status by PipelineStatus.snapshot.collectAsStateWithLifecycle()
     val currentContext by SoundAlertRuntime.contextManager.context.collectAsStateWithLifecycle()
@@ -99,10 +101,10 @@ fun HomeScreen(onOpenContext: () -> Unit, onOpenDiagnostic: (() -> Unit)?) {
             rule == null -> "Sin alerta en ${currentContext.label}"
             else -> null
         }
-        AnalyzingContent(shown, note)
+        AnalyzingContent(shown, note, pageDots)
     } else {
         val summary = remember(currentContext, toggles) { watchedSummary(currentContext, SoundAlertRuntime.ruleEngine, SoundUi::summaryName) }
-        ListeningContent(listeningUi(status, permissionDenied, summary), currentContext, toggle, onOpenContext, onOpenDiagnostic)
+        ListeningContent(listeningUi(status, permissionDenied, summary), currentContext, toggle, onOpenContext, onOpenDiagnostic, pageDots)
     }
 }
 
@@ -124,10 +126,9 @@ fun listeningUi(status: PipelineStatus.Snapshot, permissionDenied: Boolean, summ
 }
 
 /**
- * A · Escuchando: hora y chip del contexto arriba, núcleo en el centro y título con
- * los sonidos vigilados abajo. Medidas sobre 192: hora en y≈18–30, chip en y≈34–50,
- * disco central de 48 en el centro de la esfera, título en y≈134 y subtítulo en y≈152,
- * dentro del arco que gira.
+ * A · Escuchando. Un único bloque centrado en la pantalla, como en el mockup: hora →
+ * chip del contexto → emblema Jarvis (88 dp, 46 % del ancho) → "Escuchando" →
+ * sonidos vigilados → puntitos de página. Separaciones de 3 a 6 dp.
  */
 @Composable
 fun ListeningContent(
@@ -136,84 +137,96 @@ fun ListeningContent(
     onToggle: () -> Unit,
     onOpenContext: (() -> Unit)?,
     onOpenDiagnostic: (() -> Unit)?,
+    pageDots: Pair<Int, Int>? = null,
 ) {
     val ambient = LocalAmbient.current
     val ink = if (ambient) SaColors.AmbientContent else SaColors.Ink
     val secondary = if (ambient) SaColors.AmbientDim else SaColors.Brown
     WatchScreen(background = if (ambient) SaColors.AmbientBackground else SaColors.Peach) { scale ->
         with(scale) {
-            JarvisCore(if (ui.listening) CoreMode.LISTENING else CoreMode.PAUSED, Modifier.fillMaxSize())
-            // Centro tocable (72, más que los 48 dp mínimos): activa o pausa la escucha.
-            Box(
-                Modifier
-                    .align(Alignment.Center)
-                    .size(72.mdp)
-                    .clip(CircleShape)
-                    .combinedClickable(
-                        role = Role.Button,
-                        onClickLabel = if (ui.running) "Pausar la escucha" else "Activar la escucha",
-                        onLongClick = onOpenDiagnostic,
-                        onClick = onToggle,
-                    )
-                    .semantics { contentDescription = if (ui.running) "Escuchando. Toca para pausar" else "En pausa. Toca para escuchar" },
-            )
-            Column(Modifier.align(Alignment.TopCenter).padding(top = 17.mdp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Clock(color = ink)
-                Spacer(Modifier.height(3.6.mdp))
+            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                Clock(color = secondary)
+                Spacer(Modifier.height(3.5.mdp))
                 if (ambient) {
                     Text(context.label.uppercase(), style = SaText.labelSmall, color = secondary, maxLines = 1)
                 } else {
                     ContextChip(context, onOpenContext, scale)
                 }
-            }
-            Column(Modifier.align(Alignment.BottomCenter).padding(bottom = 28.mdp), horizontalAlignment = Alignment.CenterHorizontally) {
-                FitText(ui.title, SaText.title, ink, Modifier.width(130.mdp))
-                Spacer(Modifier.height(1.5.mdp))
-                FitText(ui.subtitle, SaText.body, secondary, Modifier.width(112.mdp), maxLines = 2)
+                Spacer(Modifier.height(4.5.mdp))
+                // El emblema entero (88 dp) es la zona táctil: activa o pausa la escucha.
+                JarvisCore(
+                    if (ui.listening) CoreMode.LISTENING else CoreMode.PAUSED,
+                    Modifier
+                        .size(EMBLEM.mdp)
+                        .clip(CircleShape)
+                        .combinedClickable(
+                            role = Role.Button,
+                            onClickLabel = if (ui.running) "Pausar la escucha" else "Activar la escucha",
+                            onLongClick = onOpenDiagnostic,
+                            onClick = onToggle,
+                        )
+                        .semantics { contentDescription = if (ui.running) "Escuchando. Toca para pausar" else "En pausa. Toca para escuchar" },
+                )
+                Spacer(Modifier.height(4.mdp))
+                FitText(ui.title, SaText.title, ink, Modifier.width(120.mdp))
+                Spacer(Modifier.height(1.mdp))
+                FitText(ui.subtitle, SaText.body, secondary, Modifier.width(100.mdp), maxLines = 2)
+                if (pageDots != null && !ambient) {
+                    Spacer(Modifier.height(5.mdp))
+                    PageDots(pageDots.first, pageDots.second, scale)
+                }
             }
         }
     }
 }
 
 /**
- * B · Analizando: el mismo núcleo, más rápido. Lo que la IA está oyendo con su
- * confianza real; "IA · CONFIRMADO" cuando el estabilizador ya lo confirmó. Por debajo
- * del umbral de su categoría no se dispara ninguna alerta (lo decide el estabilizador).
+ * B · Analizando: el mismo bloque, con "IA · ANALIZANDO" en lugar del chip y el emblema
+ * más rápido (9 barras). Lo que la IA está oyendo con su confianza real; "IA ·
+ * CONFIRMADO" cuando el estabilizador ya lo confirmó. Por debajo del umbral de su
+ * categoría no se dispara ninguna alerta (lo decide el estabilizador).
  */
 @Composable
-fun AnalyzingContent(detection: DetectionDisplay, note: String?) {
+fun AnalyzingContent(detection: DetectionDisplay, note: String?, pageDots: Pair<Int, Int>? = null) {
     val ambient = LocalAmbient.current
     val ink = if (ambient) SaColors.AmbientContent else SaColors.Ink
     val secondary = if (ambient) SaColors.AmbientDim else SaColors.Brown
     WatchScreen(background = if (ambient) SaColors.AmbientBackground else SaColors.Peach) { scale ->
         with(scale) {
-            JarvisCore(CoreMode.ANALYZING, Modifier.fillMaxSize())
-            FitText(
-                if (detection.confirmed) "IA · CONFIRMADO" else "IA · ANALIZANDO",
-                SaText.labelSmall.copy(textAlign = TextAlign.Center),
-                secondary,
-                Modifier.align(Alignment.TopCenter).padding(top = 30.mdp).width(100.mdp),
-            )
-            Column(
-                Modifier.align(Alignment.BottomCenter).padding(bottom = 26.mdp).semantics(mergeDescendants = true) {},
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                FitText("Sonido detectado", SaText.title, ink, Modifier.width(128.mdp))
-                Spacer(Modifier.height(2.mdp))
-                Row(Modifier.width(118.mdp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                    FitText(SoundUi.possible(detection.category), SaText.body, secondary, Modifier.weight(1f, fill = false))
-                    Spacer(Modifier.width(4.mdp))
-                    // Chip de tinta con la confianza en durazno (8,9:1).
-                    Text(
-                        String.format(Locale.US, "%d%%", (detection.confidence * 100).roundToInt()),
-                        style = SaText.labelSmall,
-                        color = if (ambient) SaColors.AmbientBackground else SaColors.Peach,
-                        maxLines = 1,
-                        modifier = Modifier.clip(RoundedCornerShape(50)).background(ink).padding(horizontal = 3.4.mdp, vertical = 1.4.mdp),
-                    )
+            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                Clock(color = secondary)
+                Spacer(Modifier.height(3.5.mdp))
+                Box(Modifier.height(8.8.mdp), contentAlignment = Alignment.Center) {
+                    Text(if (detection.confirmed) "IA · CONFIRMADO" else "IA · ANALIZANDO", style = SaText.labelSmall, color = secondary, maxLines = 1)
                 }
-                if (note != null) FitText(note, SaText.body, secondary, Modifier.width(104.mdp))
+                Spacer(Modifier.height(4.5.mdp))
+                JarvisCore(CoreMode.ANALYZING, Modifier.size(EMBLEM.mdp))
+                Spacer(Modifier.height(4.mdp))
+                Column(Modifier.semantics(mergeDescendants = true) {}, horizontalAlignment = Alignment.CenterHorizontally) {
+                    FitText("Sonido detectado", SaText.title, ink, Modifier.width(130.mdp))
+                    Spacer(Modifier.height(1.mdp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        FitText(SoundUi.possible(detection.category), SaText.body, secondary, Modifier.widthIn(max = 80.mdp))
+                        Spacer(Modifier.width(3.mdp))
+                        // Chip de tinta con la confianza en durazno (8,9:1).
+                        Text(
+                            String.format(Locale.US, "%d%%", (detection.confidence * 100).roundToInt()),
+                            style = SaText.labelSmall.copy(letterSpacing = 0.04.em),
+                            color = if (ambient) SaColors.AmbientBackground else SaColors.Peach,
+                            maxLines = 1,
+                            modifier = Modifier.clip(RoundedCornerShape(50)).background(ink).padding(horizontal = 2.8.mdp, vertical = 1.mdp),
+                        )
+                    }
+                    if (note != null) FitText(note, SaText.body, secondary, Modifier.width(100.mdp))
+                }
+                if (pageDots != null && !ambient) {
+                    Spacer(Modifier.height(5.mdp))
+                    PageDots(pageDots.first, pageDots.second, scale)
+                }
             }
         }
     }
 }
+
+/** Lado del emblema Jarvis sobre 192 (46 % del ancho). */
+private const val EMBLEM = 88f

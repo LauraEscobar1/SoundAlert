@@ -4,14 +4,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.pager.HorizontalPager
 import androidx.wear.compose.foundation.pager.rememberPagerState
 import androidx.wear.compose.material3.AnimatedPage
 import androidx.wear.compose.material3.AppScaffold
-import androidx.wear.compose.material3.HorizontalPageIndicator
 import androidx.wear.compose.material3.HorizontalPagerScaffold
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
@@ -27,7 +25,6 @@ import com.soundalert.wear.ui.sessions.SessionClockScreen
 import com.soundalert.wear.ui.sessions.SessionDetailScreen
 import com.soundalert.wear.ui.sounds.SoundsScreen
 import com.soundalert.wear.ui.state.alertOnScreen
-import com.soundalert.wear.ui.theme.SaColors
 
 private object Routes {
     const val HOME = "home"
@@ -84,17 +81,13 @@ fun WearApp() {
 @Composable
 private fun HomePager(onOpenContext: () -> Unit, onOpenDiagnostic: (() -> Unit)?, onOpenSession: (String) -> Unit) {
     val pagerState = rememberPagerState(pageCount = { PAGES })
-    // Indicador en tinta sobre el durazno (el de serie es claro y no se ve).
-    HorizontalPagerScaffold(
-        pagerState = pagerState,
-        pageIndicator = {
-            HorizontalPageIndicator(pagerState, selectedColor = SaColors.Ink, unselectedColor = SaColors.Brown.copy(alpha = 0.4f), backgroundColor = Color.Transparent)
-        },
-    ) {
+    // Sin el indicador de serie (se superponía al contenido): el inicio dibuja sus
+    // puntitos bajo el subtítulo, dentro de la zona segura.
+    HorizontalPagerScaffold(pagerState = pagerState, pageIndicator = null) {
         HorizontalPager(state = pagerState) { page ->
             AnimatedPage(pageIndex = page, pagerState = pagerState) {
                 when (page) {
-                    0 -> HomeScreen(onOpenContext, onOpenDiagnostic)
+                    0 -> HomeScreen(onOpenContext, onOpenDiagnostic, pageDots = PAGES to 0)
                     1 -> SoundsScreen(visible = pagerState.currentPage == page)
                     else -> SessionClockScreen(visible = pagerState.currentPage == page, onOpen = onOpenSession)
                 }
