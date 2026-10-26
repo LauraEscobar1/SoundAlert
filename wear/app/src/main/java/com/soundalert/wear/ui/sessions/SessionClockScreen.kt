@@ -39,6 +39,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.material3.Text
 import com.soundalert.wear.SoundAlertRuntime
@@ -50,6 +52,7 @@ import com.soundalert.wear.ui.components.GlyphIcon
 import com.soundalert.wear.ui.components.WatchScale
 import com.soundalert.wear.ui.components.WatchScreen
 import com.soundalert.wear.ui.components.rotarySteps
+import com.soundalert.wear.ui.components.centerAt
 import com.soundalert.wear.ui.icon
 import com.soundalert.wear.ui.theme.SaColors
 import com.soundalert.wear.ui.theme.SaText
@@ -103,17 +106,17 @@ fun SessionClockContent(
             Canvas(Modifier.fillMaxSize()) {
                 val u = size.minDimension / 192f
                 drawDialTicks(u)
-                drawCircle(SaColors.BrownFaint, radius = TRACK_RADIUS * u, style = Stroke(10f * u))
-                // De atrás hacia delante: el resto, la seleccionada y los eventos encima.
-                sessions.forEachIndexed { i, s -> if (i != selected) drawSession(s, nowMs, zone, u, if (s.ongoing) SaColors.Rust else SaColors.Brown.copy(alpha = 0.4f), 10f) }
-                session?.let { drawSession(it, nowMs, zone, u, SaColors.Orange, 15f) }
+                drawCircle(SaColors.BrownFaint, radius = TRACK_RADIUS * u, style = Stroke(TRACK_WIDTH * u))
+                // De atrás hacia delante: el resto, la seleccionada (más gruesa) y los eventos encima.
+                sessions.forEachIndexed { i, s -> if (i != selected) drawSession(s, nowMs, zone, u, if (s.ongoing) SaColors.Rust else SaColors.Brown.copy(alpha = 0.45f), TRACK_WIDTH) }
+                session?.let { drawSession(it, nowMs, zone, u, SaColors.Orange, SELECTED_WIDTH) }
                 sessions.forEach { s ->
-                    s.events.forEach { e -> drawDot(polar(dialAngle(e.atMs, zone), TRACK_RADIUS * u), 3f * u, e.priority.color, 1.2f * u) }
+                    s.events.forEach { e -> drawDot(polar(dialAngle(e.atMs, zone), TRACK_RADIUS * u), 3.25f * u, e.priority.color, 1.3f * u) }
                 }
             }
             listOf("12" to 0f, "3" to 90f, "6" to 180f, "9" to 270f).forEach { (label, angle) ->
                 val p = polarDp(angle, NUMBER_RADIUS)
-                Text(label, style = SaText.tag, color = SaColors.Brown, modifier = Modifier.align(Alignment.Center).offset(p.x.mdp, p.y.mdp))
+                Text(label, style = SaText.tag.copy(letterSpacing = 0.em), color = SaColors.Brown, modifier = Modifier.align(Alignment.Center).offset(p.x.mdp, p.y.mdp))
             }
             if (session == null) {
                 EmptyCenter(scale)
@@ -137,42 +140,34 @@ private fun BoxScope.SessionCenter(
 ) = with(scale) {
     val range = rangeText(session, nowMs, is24Hour, zone)
     val counts = levelCounts(session.events)
-    Column(
-        Modifier
-            .align(Alignment.Center)
-            .width(104.mdp)
-            .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text("SESIÓN ${index + 1} DE $total", style = SaText.labelSmall, color = SaColors.Brown, maxLines = 1)
-        Spacer(Modifier.height(3.mdp))
-        GlyphIcon(session.context.icon, glyphHeight = 11.mdp, tint = SaColors.Ink, contentDescription = "Contexto")
-        Spacer(Modifier.height(2.mdp))
-        FitText(session.context.label, SaText.screenTitle.copy(textAlign = TextAlign.Center), SaColors.Ink, Modifier.width(100.mdp))
-        FitText(range, SaText.body, SaColors.Brown, Modifier.width(104.mdp))
-        Spacer(Modifier.height(3.mdp))
-        LevelChip(counts, scale)
-        Spacer(Modifier.height(3.mdp))
-        Text("GIRA LA CORONA", style = SaText.tag, color = SaColors.Brown, maxLines = 1)
+    // Centros verticales medidos en el mockup (sobre 192).
+    Box(Modifier.fillMaxSize().semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }) {
+        Text("SESIÓN ${index + 1} DE $total", style = SaText.labelSmall, color = SaColors.Brown, maxLines = 1, modifier = Modifier.centerAt(50.4.mdp))
+        GlyphIcon(session.context.icon, glyphHeight = 9.mdp, tint = SaColors.Ink, contentDescription = "Contexto", modifier = Modifier.centerAt(65.4.mdp))
+        FitText(session.context.label, SaText.title, SaColors.Ink, Modifier.centerAt(84.7.mdp).width(110.mdp))
+        FitText(range, SaText.bodyStrong, SaColors.Ink, Modifier.centerAt(98.3.mdp).width(110.mdp))
+        LevelChip(counts, scale, Modifier.centerAt(112.7.mdp))
+        Text("GIRA LA CORONA", style = SaText.footer, color = SaColors.Brown, maxLines = 1, modifier = Modifier.centerAt(126.8.mdp))
     }
 }
 
 /** Chip con el conteo por nivel ("● 2 avisos"); el punto lleva el color del nivel. */
 @Composable
-private fun LevelChip(counts: List<Pair<Priority, String>>, scale: WatchScale) = with(scale) {
+private fun LevelChip(counts: List<Pair<Priority, String>>, scale: WatchScale, modifier: Modifier) = with(scale) {
+    val style = SaText.row.copy(fontSize = 6.3.sp)
     Row(
-        Modifier.clip(CircleShape).background(SaColors.BrownFaint).padding(horizontal = 5.mdp, vertical = 2.mdp),
+        modifier.height(11.mdp).clip(CircleShape).background(SaColors.BrownFaint).padding(horizontal = 4.8.mdp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.mdp),
     ) {
         if (counts.isEmpty()) {
-            Text("Sin alertas", style = SaText.labelSmall, color = SaColors.Ink, maxLines = 1)
+            Text("Sin alertas", style = style, color = SaColors.Brown, maxLines = 1)
         }
         counts.forEach { (priority, text) ->
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(4.5.mdp).clip(CircleShape).background(priority.color))
+                Box(Modifier.size(3.2.mdp).clip(CircleShape).background(priority.color))
                 Spacer(Modifier.width(2.mdp))
-                Text(text, style = SaText.labelSmall, color = SaColors.Ink, maxLines = 1)
+                Text(text, style = style, color = SaColors.Brown, maxLines = 1)
             }
         }
     }
@@ -201,18 +196,18 @@ private fun DrawScope.drawSession(session: Session, nowMs: Long, zone: ZoneId, u
     )
 }
 
-/** Marcas del borde: 12 horas más largas y 48 intermedias más tenues. */
+/** Marcas finas del borde (r 90,5 – 92,1): las 12 de las horas algo más marcadas. */
 private fun DrawScope.drawDialTicks(u: Float) {
-    val outer = 93f * u
+    val outer = 92.1f * u
     for (i in 0 until 60) {
         val hour = i % 5 == 0
-        val length = (if (hour) 4.5f else 2f) * u
+        val length = 1.8f * u
         val angle = i * 6f
         drawLine(
-            if (hour) SaColors.Brown else SaColors.Brown.copy(alpha = 0.35f),
+            SaColors.Brown.copy(alpha = if (hour) 0.6f else 0.4f),
             polar(angle, outer - length),
             polar(angle, outer),
-            strokeWidth = (if (hour) 1.2f else 0.8f) * u,
+            strokeWidth = (if (hour) 0.9f else 0.6f) * u,
             cap = StrokeCap.Round,
         )
     }
@@ -243,6 +238,8 @@ internal fun nowEvery(periodMs: Long) = produceState(System.currentTimeMillis())
     }
 }
 
-/** Radios sobre 192: pista de 10 de grosor en r = 80, números en r = 66. */
-private const val TRACK_RADIUS = 80f
-private const val NUMBER_RADIUS = 66f
+/** Medidas del mockup sobre 192: pista de 6,5 en r = 82,9 (la seleccionada, de 10) y números en r = 67,8. */
+private const val TRACK_RADIUS = 82.9f
+private const val TRACK_WIDTH = 6.5f
+private const val SELECTED_WIDTH = 10f
+private const val NUMBER_RADIUS = 67.8f
