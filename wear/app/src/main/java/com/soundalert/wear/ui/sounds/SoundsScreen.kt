@@ -30,6 +30,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -56,6 +57,7 @@ import com.soundalert.wear.ui.components.GlyphIcon
 import com.soundalert.wear.ui.components.ToastState
 import com.soundalert.wear.ui.components.WatchScale
 import com.soundalert.wear.ui.components.WatchScreen
+import com.soundalert.wear.ui.components.centerAt
 import com.soundalert.wear.ui.components.rememberToastState
 import com.soundalert.wear.ui.components.rotarySteps
 import com.soundalert.wear.ui.icon
@@ -93,7 +95,7 @@ fun SoundsScreen(visible: Boolean) {
             when {
                 cell.locked -> toast.show(LOCKED_TOAST)
                 SoundAlertRuntime.soundToggles.setEnabled(context, cell.category, !cell.enabled) ->
-                    toast.show(if (cell.enabled) "$name desactivado" else "$name activado ✓")
+                    toast.show(if (cell.enabled) "$name desactivado" else "$name activado", check = !cell.enabled)
             }
         },
         toast = toast,
@@ -125,23 +127,23 @@ fun SoundsContent(
             },
     ) { scale ->
         with(scale) {
-            // Encabezado: icono y nombre del contexto + "5 DE 7" (activos de todos).
+            // Encabezado (centro en y≈26,6 sobre 192): icono y nombre del contexto + "5 DE 7".
             Row(
-                Modifier.align(Alignment.TopCenter).padding(top = 17.mdp).semantics(mergeDescendants = true) {},
+                Modifier.centerAt(26.6.mdp).semantics(mergeDescendants = true) {},
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                GlyphIcon(context.icon, glyphHeight = 9.mdp, tint = SaColors.Ink, contentDescription = "Contexto")
-                Spacer(Modifier.width(4.mdp))
+                GlyphIcon(context.icon, glyphHeight = 7.1.mdp, tint = SaColors.Ink, contentDescription = "Contexto")
+                Spacer(Modifier.width(3.6.mdp))
                 Text(context.label, style = SaText.screenTitle, color = SaColors.Ink, maxLines = 1)
-                Spacer(Modifier.width(5.mdp))
+                Spacer(Modifier.width(3.6.mdp))
                 Text("${cells.count { it.enabled }} DE ${cells.size}", style = SaText.tag, color = SaColors.Brown, maxLines = 1)
             }
 
             val slots = honeycombSlots(HEX_RADIUS, HEX_GAP)
             val pageCells = pages[current]
-            // Cada toque va a la celda de centro más cercano: cada una recibe una zona
-            // hexagonal de 48 dp entre lados opuestos (los centros están a 48 dp) sin pisar a
-            // sus vecinas. En un panal 2 – 3 – 2, 7 cuadrados de 48 × 48 se solaparían.
+            // Cada toque va a la celda de centro más cercano: cada una recibe toda su zona
+            // hexagonal (40 dp entre lados opuestos, la separación del mockup) sin pisar a
+            // sus vecinas.
             Box(
                 Modifier.fillMaxSize().pointerInput(pageCells) {
                     detectTapGestures { tap ->
@@ -166,12 +168,12 @@ fun SoundsContent(
                 )
             }
 
-            Column(Modifier.align(Alignment.BottomCenter).padding(bottom = 13.mdp), horizontalAlignment = Alignment.CenterHorizontally) {
+            // Pie en y≈163; el toast aparece en su lugar, dentro del margen de seguridad.
+            if (toast.message == null) {
                 val footer = if (pages.size > 1) "TOCA PARA ACTIVAR · ${current + 1}/${pages.size}" else "TOCA PARA ACTIVAR"
-                Text(footer, style = SaText.tag, color = SaColors.Brown, maxLines = 1)
+                Text(footer, style = SaText.footer, color = SaColors.Ink, maxLines = 1, modifier = Modifier.centerAt(163.3.mdp))
             }
-
-            GlassToast(toast, scale, Modifier.align(Alignment.Center).offset(y = HONEYCOMB_OFFSET_Y.mdp))
+            GlassToast(toast, scale, Modifier.centerAt(163.mdp))
         }
     }
 }
@@ -191,7 +193,7 @@ private fun HexCell(cell: SoundCell, onToggle: () -> Unit, scale: WatchScale, mo
         modifier
             .size(width, height)
             .clip(HexShape)
-            .then(if (cell.enabled) Modifier.background(SaColors.Glass).border(1.dp, SaColors.GlassBorder, HexShape) else Modifier)
+            .then(if (cell.enabled) Modifier.background(SaColors.Glass).border(0.75.dp, SaColors.GlassBorder, HexShape) else Modifier)
             // Los toques los reparte el panal (celda más cercana); aquí solo la semántica.
             .semantics {
                 contentDescription = "$name, ${cell.priority.label.lowercase()}"
@@ -210,34 +212,39 @@ private fun HexCell(cell: SoundCell, onToggle: () -> Unit, scale: WatchScale, mo
             Canvas(Modifier.fillMaxSize()) {
                 drawPath(
                     hexPath(size),
-                    SaColors.Brown.copy(alpha = 0.4f),
-                    style = Stroke(1.2.dp.toPx(), cap = StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(2.dp.toPx(), 2.dp.toPx()))),
+                    SaColors.Brown.copy(alpha = 0.45f),
+                    style = Stroke(0.9.mdp.toPx(), cap = StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(2.4.mdp.toPx(), 1.8.mdp.toPx()))),
                 )
             }
         }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(contentAlignment = Alignment.Center) {
-                GlyphIcon(
-                    SoundUi.icon(cell.category),
-                    glyphHeight = 12.mdp,
-                    maxGlyphWidth = 15.mdp,
-                    tint = if (cell.enabled) SaColors.Ink else SaColors.Brown,
-                    modifier = Modifier.alpha(if (cell.enabled) 1f else 0.45f),
-                )
-                if (!cell.enabled) {
-                    // Línea diagonal que tacha el icono apagado.
-                    Canvas(Modifier.size(17.mdp)) {
-                        drawLine(SaColors.Brown, Offset(0f, size.height), Offset(size.width, 0f), strokeWidth = 1.4.dp.toPx(), cap = StrokeCap.Round)
-                    }
+        // Icono con su centro 3,9 por encima del centro de la celda y nombre 7,9 por debajo.
+        Box(Modifier.offset(y = (-3.9).mdp), contentAlignment = Alignment.Center) {
+            GlyphIcon(
+                SoundUi.icon(cell.category),
+                glyphHeight = 7.8.mdp,
+                maxGlyphWidth = 9.6.mdp,
+                tint = if (cell.enabled) SaColors.Ink else SaColors.Brown,
+                modifier = Modifier.alpha(if (cell.enabled) 1f else 0.45f),
+            )
+            if (!cell.enabled) {
+                // Línea diagonal que tacha el icono apagado.
+                Canvas(Modifier.size(10.5.mdp)) {
+                    drawLine(SaColors.Brown, Offset(0f, size.height), Offset(size.width, 0f), strokeWidth = 0.9.mdp.toPx(), cap = StrokeCap.Round)
                 }
             }
-            Spacer(Modifier.height(1.5.mdp))
-            FitText(name, SaText.cell, if (cell.enabled) SaColors.Ink else SaColors.Brown, Modifier.width(width * 0.78f), maxLines = 2)
         }
-        LevelDot(cell, scale, Modifier.align(Alignment.TopEnd).offset(x = (-6.5).mdp, y = 10.mdp))
+        // El nombre apagado va en café sólido (7:1), no atenuado: el texto debe cumplir 4,5:1.
+        FitText(name, SaText.cell, if (cell.enabled) SaColors.Ink else SaColors.Brown, Modifier.offset(y = 7.9.mdp).width(width * 0.8f), maxLines = 2)
+        // Punto del nivel en la esquina superior derecha (centro a +9,7, −14,3 del centro).
+        LevelDot(cell, scale, Modifier.align(Alignment.TopStart).offset(x = (width / 2 + 9.7.mdp - 3.25.mdp), y = (height / 2 - 14.3.mdp - 3.25.mdp)))
         if (cell.locked) {
-            // Candado en lugar de la opción de apagar: peligro siempre activo.
-            GlyphIcon(R.drawable.ic_lock, glyphHeight = 6.mdp, tint = SaColors.Ink, modifier = Modifier.align(Alignment.TopStart).offset(x = 8.mdp, y = 9.5.mdp))
+            // Candado en lugar de la opción de apagar: peligro siempre activo (simétrico al punto).
+            GlyphIcon(
+                R.drawable.ic_lock,
+                glyphHeight = 3.6.mdp,
+                tint = SaColors.Ink,
+                modifier = Modifier.align(Alignment.TopStart).offset(x = (width / 2 - 9.7.mdp - 1.45.mdp), y = (height / 2 - 14.3.mdp - 1.8.mdp)),
+            )
         }
     }
 }
@@ -252,9 +259,10 @@ private fun LevelDot(cell: SoundCell, scale: WatchScale, modifier: Modifier) = w
             .size(6.5.mdp)
             .clip(CircleShape)
             .background(SaColors.Peach)
-            .padding(1.4.mdp)
+            .padding(1.mdp)
             .clip(CircleShape)
-            .background(cell.priority.color),
+            // Apagada: el color del nivel atenuado, como en el mockup.
+            .background(if (cell.enabled) cell.priority.color else cell.priority.color.copy(alpha = 0.45f).compositeOver(SaColors.Peach)),
     )
 }
 
@@ -291,13 +299,13 @@ fun honeycombSlots(radius: Float, gap: Float): List<HexSlot> {
 }
 
 /**
- * Radio de las celdas y hueco entre ellas, sobre 192: los centros de celdas vecinas
- * quedan a 48 (zona táctil mínima) y el panal mide 141 × 135.
+ * Radio de las celdas y hueco entre ellas, sobre 192, medidos en el mockup: celdas de
+ * 37,4 × 43,2 con centros vecinos a 40 y el panal de 118 × 113.
  */
-const val HEX_RADIUS = 26f
-const val HEX_GAP = 3f
+const val HEX_RADIUS = 21.6f
+const val HEX_GAP = 2.8f
 
 /** El panal baja un poco respecto al centro de la esfera para dejar sitio al encabezado. */
-private const val HONEYCOMB_OFFSET_Y = 4f
+private const val HONEYCOMB_OFFSET_Y = 2.6f
 
 private val SQRT3 = sqrt(3f)
