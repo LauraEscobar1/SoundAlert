@@ -16,7 +16,6 @@ import com.soundalert.wear.context.ContextStore
 import com.soundalert.wear.context.SharedPreferencesContextStore
 import com.soundalert.wear.context.ContextualClassifier
 import com.soundalert.wear.context.DetectionHistory
-import com.soundalert.wear.history.HistoryRepository
 import com.soundalert.wear.pipeline.PipelineStatus
 import com.soundalert.wear.rules.RuleEngine
 import com.soundalert.wear.rules.SharedPreferencesSoundToggleStore
@@ -131,7 +130,6 @@ object SoundAlertRuntime {
     // ---------- Backend (Railway → Supabase): secundario a la detección local ----------
 
     @Volatile private var backendSync: BackendSync? = null
-    @Volatile private var historyRepository: HistoryRepository? = null
     @Volatile private var networkCallbackRegistered = false
 
     private val api: SoundAlertApi by lazy { SoundAlertApi(BuildConfig.API_BASE_URL, UrlConnectionTransport()) }
@@ -159,11 +157,6 @@ object SoundAlertRuntime {
                     scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
                 ).also { backendSync = it }
             }
-        }
-
-    fun historyRepository(context: Context): HistoryRepository =
-        historyRepository ?: synchronized(this) {
-            historyRepository ?: HistoryRepository(api, SharedPreferencesDeviceStore(context.applicationContext)).also { historyRepository = it }
         }
 
     /**

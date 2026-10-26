@@ -67,7 +67,7 @@ Navegación: A → G → H deslizando en horizontal (indicador de página abajo)
 - Colores: fondo durazno `#F4A07A`, texto secundario café `#4A1A0C`, títulos `#141414`, acento óxido `#A33A12`, vidrio `#C8501C` al 32 % con borde blanco al 45 % (`ui/theme/Theme.kt`). Rojo de peligro `#F03A2E`, ámbar `#F5A90A` y azul `#5BA8F5`, solo en alertas e indicadores de nivel. Todos los textos superan 4,5:1 (el más justo, `#141414` sobre el rojo, da 4,7:1); lo comprueba `ContrastTest`.
 - Tipografía: Archivo variable (`res/font/archivo.ttf`, OFL, ver `assets/NOTICE-archivo.txt`) condensada y en negrita para títulos; monoespaciada para las etiquetas. Iconos: Material Icons (Apache 2.0) como vectores locales en `res/drawable/`.
 - Previews de A a I (pantalla redonda pequeña, 192 dp) en `ui/preview/ScreenPreviews.kt`.
-- El historial del backend (`HistoryRepository`) ya no se muestra en el reloj; la sincronización sigue enviando detecciones, contexto y confirmaciones.
+- El reloj ya no lee el historial del backend; la sincronización sigue enviando detecciones, contexto y confirmaciones.
 
 ## Conexión con el backend (Railway)
 
