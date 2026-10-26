@@ -197,6 +197,9 @@ fun Modifier.rotarySteps(active: Boolean = true, onStep: (Int) -> Unit): Modifie
     val accumulated = remember { floatArrayOf(0f) }
     LaunchedEffect(active) { if (active) focusRequester.requestFocus() }
     return onRotaryScrollEvent { event ->
+        // Al cambiar de sentido se descarta lo acumulado: si no, el primer giro hacia
+        // atrás tendría que deshacer antes el sobrante de los giros hacia adelante.
+        if (event.verticalScrollPixels * accumulated[0] < 0f) accumulated[0] = 0f
         accumulated[0] += event.verticalScrollPixels
         while (accumulated[0] >= threshold) {
             accumulated[0] -= threshold
