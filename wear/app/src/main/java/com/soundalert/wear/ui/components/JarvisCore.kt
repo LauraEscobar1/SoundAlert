@@ -26,7 +26,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import com.soundalert.wear.ui.theme.SaColors
 import kotlin.math.PI
-import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -37,8 +36,9 @@ enum class CoreMode { LISTENING, ANALYZING, PAUSED }
  * Emblema "Jarvis" sobre un viewBox de 200 × 200 centrado en (100, 100). Capas base del SVG
  * del diseño (marcas r 94, arco segmentado r 82 con guiones [90, 26, 18, 26, 60, 295],
  * anillo interior r 70 con su punto, halo r 54, núcleo r 40 y barras) y, encima:
- *  - El arco segmentado gira y respira en grosor (3 → 4,5 → 3 dp cada 3 s), con una
- *    estela de barrido que se desvanece detrás de su segmento más largo.
+ *  - El arco segmentado gira y respira en grosor (de 4,5 a 6,7 unidades del viewBox cada
+ *    3 s: 3 → 4,5 dp en un emblema de 134 dp, escalado con el tamaño), con una estela de
+ *    barrido que se desvanece detrás de su segmento más largo.
  *  - Un segundo arco fino y corto (vino al 50 %, r 62) gira al revés a otra velocidad.
  *  - Cuatro partículas orbitan entre el anillo interior y el arco, a distintas
  *    velocidades, con una opacidad que sube y baja.
@@ -48,7 +48,6 @@ enum class CoreMode { LISTENING, ANALYZING, PAUSED }
  * Al pasar a ANALYZING todo acelera de forma progresiva (0,9 s, FastOutSlowIn): los
  * anillos pasan a 2,2 s y 3,5 s por vuelta, las 5 barras se funden en 9 más rápidas y el
  * halo y el núcleo dan paso al círculo r 54 con trazo de acento y dos puntos en el anillo.
- * Las marcas se interrumpen arriba y abajo para dejar sitio a los textos.
  * En modo ambiente: estático, sin halo, estela, arco fino ni partículas, en gris.
  *
  * Un único reloj de fotogramas integra la velocidad de cada capa (así la aceleración no
@@ -82,7 +81,7 @@ fun JarvisCore(mode: CoreMode, modifier: Modifier = Modifier, level: Float? = nu
         rotate(clock.arc) {
             if (!ambient) drawTrail(u)
             val breath = if (animated) 0.5f - 0.5f * cos(clock.breath) else 0f
-            drawSegmentedArc(colors, u, widthPx = (3f + 1.5f * breath) * density)
+            drawSegmentedArc(colors, u, widthPx = (4.48f + 2.24f * breath) * u)
         }
         rotate(clock.inner) { drawInnerRing(colors, u, secondDot = a) }
         if (!ambient) drawParticles(clock, u, a)
@@ -175,16 +174,10 @@ private const val BAR_MIN = 0.35f
 private const val VIEWBOX = 200f
 private const val TWO_PI = (2 * PI).toFloat()
 
-/** Las marcas se interrumpen en estos sectores (grados desde las 12 y desde las 6) para dejar sitio a los textos. */
-private const val TOP_GAP = 26f
-private const val BOTTOM_GAP = 38f
-
 private fun DrawScope.drawTicks(colors: JarvisColors, u: Float) {
     val ticks = 80
     for (i in 0 until ticks) {
         val deg = i * 360f / ticks
-        val fromTop = abs(((deg + 180f) % 360f) - 180f)
-        if (fromTop < TOP_GAP || fromTop > 180f - BOTTOM_GAP) continue
         val rad = Math.toRadians((deg - 90f).toDouble())
         val c = cos(rad).toFloat()
         val s = sin(rad).toFloat()
