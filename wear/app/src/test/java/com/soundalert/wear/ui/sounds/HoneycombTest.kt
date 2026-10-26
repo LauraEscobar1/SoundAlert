@@ -19,41 +19,36 @@ class HoneycombTest {
     }
 
     @Test
-    fun `celdas un 10 por ciento mayores que el mockup con centros vecinos a 44`() {
-        assertEquals(43.2f * 1.1f, HEX_RADIUS * 2, 0.01f)
-        assertEquals(41.2f, HEX_RADIUS * sqrt(3f), 0.05f)
-        assertEquals(3f, HEX_GAP)
-        // El toque va a la celda más cercana: la zona de cada una mide, entre lados
-        // opuestos, la distancia a su vecina más próxima.
+    fun `la fila de 3 ocupa el 92 por ciento del ancho`() {
+        val rowWidth = 2 * slots.maxOf { it.x } + HEX_RADIUS * sqrt(3f)
+        assertEquals(0.92f, rowWidth / 192f, 0.01f)
+    }
+
+    @Test
+    fun `las celdas no se tocan y cada una recibe su zona de toque`() {
+        val minDistance = HEX_RADIUS * sqrt(3f) + HEX_GAP
         for (a in slots.indices) {
             val nearest = slots.indices.filter { it != a }.minOf { b -> hypot(slots[a].x - slots[b].x, slots[a].y - slots[b].y) }
-            assertEquals("celda $a", 44.2f, nearest, 0.1f)
+            assertEquals("celda $a", minDistance, nearest, 0.1f)
         }
+        assertEquals(60.2f, minDistance, 0.1f)
     }
 
     @Test
-    fun `las celdas no se tocan - entre vecinas queda el hueco`() {
-        val minDistance = HEX_RADIUS * sqrt(3f) + HEX_GAP
-        for (a in slots.indices) for (b in a + 1 until slots.size) {
-            val d = hypot(slots[a].x - slots[b].x, slots[a].y - slots[b].y)
-            assertTrue("$a-$b a $d", d >= minDistance - 0.01f)
+    fun `la fila del centro se ve a tamano completo`() {
+        // Fila de 3 con su centro en el de la pantalla.
+        for (x in listOf(-60.2f, 0f, 60.2f)) assertEquals(1f to 1f, cellLens(x, 96f))
+    }
+
+    @Test
+    fun `cerca de la curva las celdas se achican hasta caber y se desvanecen`() {
+        for (y in listOf(30f, 50f, 140f, 165f)) for (x in listOf(-60.2f, -30.1f, 0f, 30.1f, 60.2f)) {
+            val (scale, alpha) = cellLens(x, y)
+            val outer = hypot(x, y - 96f) + HEX_RADIUS * scale
+            // O cabe entera dentro de la pantalla, o está tan achicada que ya no se ve.
+            assertTrue("($x, $y): radio $outer", outer <= 94.01f || alpha == 0f)
         }
-    }
-
-    @Test
-    fun `las filas de 3 caben a lo ancho en el margen de seguridad`() {
-        val halfWidth = slots.maxOf { it.x } + HEX_RADIUS * sqrt(3f) / 2
-        assertTrue("media anchura $halfWidth", halfWidth < 96 - 19.2f + 2)
-    }
-
-    @Test
-    fun `ojo de pez - tamano completo en el centro del area de celdas, pequeno y transparente en los bordes`() {
-        assertEquals(1f to 1f, fisheye(108f))
-        assertEquals(1f to 1f, fisheye(130f))
-        val (edgeScale, edgeAlpha) = fisheye(178f)
-        assertEquals(0.45f, edgeScale, 0.01f)
-        assertEquals(0f, edgeAlpha, 0.01f)
-        val (midScale, midAlpha) = fisheye(60f)
-        assertTrue(midScale in 0.45f..1f && midAlpha in 0f..1f)
+        val (edgeScale, edgeAlpha) = cellLens(0f, 180f)
+        assertTrue(edgeScale < 0.5f && edgeAlpha == 0f)
     }
 }

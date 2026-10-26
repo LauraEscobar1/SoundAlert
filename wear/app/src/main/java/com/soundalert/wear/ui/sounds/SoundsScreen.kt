@@ -89,7 +89,7 @@ import com.soundalert.wear.ui.state.SoundCell
 import com.soundalert.wear.ui.state.soundCells
 import com.soundalert.wear.ui.theme.SaColors
 import com.soundalert.wear.ui.theme.SaText
-import kotlin.math.abs
+import kotlin.math.hypot
 import kotlin.math.sqrt
 
 /**
@@ -155,7 +155,7 @@ fun SoundsContent(
             // Posición y ojo de pez de cada celda: se calculan en las fases de diseño y dibujo
             // (leen [offset] ahí), así que desplazar no recompone.
             fun centerY(i: Int) = (FIRST_ROW_Y + slots[i].y) * unit - offset
-            fun lens(i: Int) = fisheye(centerY(i) / unit)
+            fun lens(i: Int) = cellLens(slots[i].x, centerY(i) / unit)
 
             Box(
                 Modifier
@@ -252,31 +252,31 @@ fun SoundsContent(
 }
 
 /**
- * Ojo de pez del panal según la altura del centro de la celda (dp sobre 192): a tamaño
- * completo en la franja central y cada vez más pequeña y transparente hacia los bordes,
- * hasta desaparecer bajo el encabezado y fuera del margen de seguridad.
+ * Ojo de pez del panal para una celda con centro en ([x], [y]) (dp sobre 192, x desde el
+ * centro): la celda se achica solo lo necesario para no salirse de la curva de la pantalla
+ * (su radio no pasa de [FIT_RADIUS] desde el centro), así que la fila que pasa por el
+ * centro se ve siempre a tamaño completo. Al achicarse mucho, se desvanece.
  */
-internal fun fisheye(y: Float): Pair<Float, Float> {
-    val distance = abs(y - LENS_CENTER_Y)
-    val t = ((distance - LENS_FLAT) / (LENS_EDGE - LENS_FLAT)).coerceIn(0f, 1f)
-    val eased = t * t * (3 - 2 * t) // suave en los dos extremos
-    return (1f - 0.55f * eased) to (1f - eased)
+internal fun cellLens(x: Float, y: Float): Pair<Float, Float> {
+    val distance = hypot(x, y - 96f)
+    val scale = ((FIT_RADIUS - distance) / HEX_RADIUS).coerceIn(MIN_SCALE, 1f)
+    val t = ((scale - MIN_SCALE) / (0.85f - MIN_SCALE)).coerceIn(0f, 1f)
+    return scale to t * t * (3 - 2 * t)
 }
 
-/** Centro del ojo de pez (el del área de celdas, bajo el encabezado), franja a tamaño completo y distancia a la que la celda desaparece. */
-private const val LENS_CENTER_Y = 108f
-private const val LENS_FLAT = 26f
-private const val LENS_EDGE = 70f
+/** La celda entera cabe dentro de este radio (sobre 192); por debajo de [MIN_SCALE] ya no se ve. */
+private const val FIT_RADIUS = 94f
+private const val MIN_SCALE = 0.35f
 
 /**
  * Sobre 192: el encabezado (12 de alto) se centra en y = 38, dentro del margen de
  * seguridad aunque muestre el mensaje más largo; las celdas solo se ven por debajo de
- * y = 45. La primera fila empieza en y = 70 y la última puede subir hasta y = 148.
+ * y = 45. La primera fila empieza en y = 72 y la última puede subir hasta y = 120.
  */
 private const val HEADER_Y = 38f
 private const val CELLS_TOP = 45f
-private const val FIRST_ROW_Y = 70f
-private const val LAST_ROW_Y = 148f
+private const val FIRST_ROW_Y = 72f
+private const val LAST_ROW_Y = 120f
 
 /**
  * Celda hexagonal con la punta arriba. Encendida: vidrio con borde blanco al 45 % y
@@ -313,37 +313,37 @@ private fun HexCell(cell: SoundCell, onToggle: () -> Unit, scale: WatchScale, mo
                 drawPath(
                     hexPath(size),
                     SaColors.Wine.copy(alpha = 0.45f),
-                    style = Stroke(0.9.mdp.toPx(), cap = StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(2.4.mdp.toPx(), 1.8.mdp.toPx()))),
+                    style = Stroke((0.9f * K).mdp.toPx(), cap = StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf((2.4f * K).mdp.toPx(), (1.8f * K).mdp.toPx()))),
                 )
             }
         }
         // Icono con su centro 4,3 por encima del centro de la celda y nombre 8,7 por debajo.
-        Box(Modifier.offset(y = (-4.3).mdp), contentAlignment = Alignment.Center) {
+        Box(Modifier.offset(y = (-4.3f * K).mdp), contentAlignment = Alignment.Center) {
             GlyphIcon(
                 SoundUi.icon(cell.category),
-                glyphHeight = 8.6.mdp,
-                maxGlyphWidth = 10.6.mdp,
+                glyphHeight = (8.6f * K).mdp,
+                maxGlyphWidth = (10.6f * K).mdp,
                 tint = if (cell.enabled) SaColors.Wine else SaColors.Wine,
                 modifier = Modifier.alpha(if (cell.enabled) 1f else 0.45f),
             )
             if (!cell.enabled) {
                 // Línea diagonal que tacha el icono apagado.
-                Canvas(Modifier.size(11.5.mdp)) {
-                    drawLine(SaColors.Wine, Offset(0f, size.height), Offset(size.width, 0f), strokeWidth = 0.9.mdp.toPx(), cap = StrokeCap.Round)
+                Canvas(Modifier.size((11.5f * K).mdp)) {
+                    drawLine(SaColors.Wine, Offset(0f, size.height), Offset(size.width, 0f), strokeWidth = (0.9f * K).mdp.toPx(), cap = StrokeCap.Round)
                 }
             }
         }
         // El nombre apagado va en vino sólido (7,1:1), no atenuado: el texto debe cumplir 4,5:1.
-        FitText(name, SaText.cell.copy(fontSize = 5.5.sp, lineHeight = 6.2.sp), if (cell.enabled) SaColors.Wine else SaColors.Wine, Modifier.offset(y = 8.7.mdp).width(width * 0.8f), maxLines = 2)
+        FitText(name, SaText.cell.copy(fontSize = (5.5f * K).sp, lineHeight = (6.2f * K).sp), SaColors.Wine, Modifier.offset(y = (8.7f * K).mdp).width(width * 0.8f), maxLines = 2)
         // Punto del nivel en la esquina superior derecha (centro a +10,7, −15,7 del centro).
-        LevelDot(cell, scale, Modifier.align(Alignment.TopStart).offset(x = (width / 2 + 10.7.mdp - 3.25.mdp), y = (height / 2 - 15.7.mdp - 3.25.mdp)))
+        LevelDot(cell, scale, Modifier.align(Alignment.TopStart).offset(x = width / 2 + ((10.7f - 3.25f) * K).mdp, y = height / 2 - ((15.7f + 3.25f) * K).mdp))
         if (cell.locked) {
             // Candado en lugar de la opción de apagar: peligro siempre activo (simétrico al punto).
             GlyphIcon(
                 R.drawable.ic_lock,
-                glyphHeight = 3.6.mdp,
+                glyphHeight = (3.6f * K).mdp,
                 tint = SaColors.Wine,
-                modifier = Modifier.align(Alignment.TopStart).offset(x = (width / 2 - 10.7.mdp - 1.45.mdp), y = (height / 2 - 15.7.mdp - 1.8.mdp)),
+                modifier = Modifier.align(Alignment.TopStart).offset(x = width / 2 - ((10.7f + 1.45f) * K).mdp, y = height / 2 - ((15.7f + 1.8f) * K).mdp),
             )
         }
     }
@@ -356,10 +356,10 @@ const val LOCKED_TOAST = "Siempre activo por seguridad"
 private fun LevelDot(cell: SoundCell, scale: WatchScale, modifier: Modifier) = with(scale) {
     Box(
         modifier
-            .size(6.5.mdp)
+            .size((6.5f * K).mdp)
             .clip(CircleShape)
             .background(SaColors.Background)
-            .padding(1.mdp)
+            .padding((1f * K).mdp)
             .clip(CircleShape)
             // Apagada: el color del nivel atenuado, como en el mockup.
             .background(if (cell.enabled) cell.priority.color else cell.priority.color.copy(alpha = 0.45f).compositeOver(SaColors.Background)),
@@ -404,12 +404,14 @@ fun honeycombSlots(count: Int, radius: Float, gap: Float): List<HexSlot> {
 }
 
 /**
- * Radio de las celdas y hueco entre ellas, sobre 192: celdas un 10 % mayores que en el
- * mockup (41,2 × 47,5), con centros vecinos a 44 y 3 de separación. Las filas de 3 miden
- * 130 de ancho y caben dentro del margen de seguridad.
+ * Radio de las celdas y hueco entre ellas, sobre 192: un 36 % mayores que antes, para
+ * que la fila de 3 ocupe el 92 % del ancho (177 de 192); centros vecinos a 60.
  */
-const val HEX_RADIUS = 23.76f
-const val HEX_GAP = 3f
+const val HEX_RADIUS = 32.4f
+const val HEX_GAP = 4.1f
+
+/** Escala del contenido de la celda (icono, nombre, punto, candado) respecto a la celda anterior de radio 23,76. */
+private const val K = HEX_RADIUS / 23.76f
 
 
 private val SQRT3 = sqrt(3f)

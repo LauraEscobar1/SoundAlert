@@ -64,7 +64,7 @@ class WearAppUiTest {
     fun tearDown() {
         val alerts = SoundAlertRuntime.alertManager(app)
         alerts.activeAlerts.forEach { alerts.acknowledge(it.id) }
-        SoundAlertRuntime.soundToggles.setEnabled(SoundAlertContext.CASA, SoundCategory.BABY_CRYING, enabled = true)
+        SoundAlertRuntime.soundToggles.setEnabled(SoundAlertContext.CASA, SoundCategory.GLASS_BREAK, enabled = true)
         PipelineStatus.reset()
         SoundAlertRuntime.contextManager.set(original)
         scenario.close()
@@ -112,16 +112,16 @@ class WearAppUiTest {
     @Test
     fun tocarUnaCeldaDelPanalApagaElSonidoEnEseContexto() {
         compose.onRoot().performTouchInput { swipeLeft() }
-        // Primera página de Casa: peligro, atención y el primer aviso (bebé).
-        compose.waitUntil(3_000) { compose.onAllNodes(hasContentDescription("Bebé, aviso")).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNode(hasContentDescription("Bebé, aviso")).performClick()
-        compose.waitUntil(3_000) { compose.onAllNodes(hasText("Bebé desactivado")).fetchSemanticsNodes().isNotEmpty() }
+        // Segunda fila de Casa, visible sin desplazar: vidrio roto (atención).
+        compose.waitUntil(3_000) { compose.onAllNodes(hasContentDescription("Vidrio roto, atención")).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasContentDescription("Vidrio roto, atención")).performClick()
+        compose.waitUntil(3_000) { compose.onAllNodes(hasText("Vidrio roto desactivado")).fetchSemanticsNodes().isNotEmpty() }
         // La confirmación ocupa el lugar del encabezado: termina por encima de donde empiezan las celdas.
-        val message = compose.onNode(hasText("Bebé desactivado")).getBoundsInRoot()
+        val message = compose.onNode(hasText("Vidrio roto desactivado")).getBoundsInRoot()
         val screen = compose.onRoot().getBoundsInRoot()
         assertTrue("mensaje en ${message.bottom}", message.bottom <= screen.top + (screen.bottom - screen.top) * 45f / 192f)
-        assertNull(SoundAlertRuntime.ruleEngine.match(SoundCategory.BABY_CRYING, SoundAlertContext.CASA))
-        assertEquals(Priority.INFORMATION, SoundAlertRuntime.ruleEngine.match(SoundCategory.BABY_CRYING, SoundAlertContext.OTRO)?.priority)
+        assertNull(SoundAlertRuntime.ruleEngine.match(SoundCategory.GLASS_BREAK, SoundAlertContext.CASA))
+        assertEquals(Priority.ATTENTION, SoundAlertRuntime.ruleEngine.match(SoundCategory.GLASS_BREAK, SoundAlertContext.OTRO)?.priority)
 
         // Peligro: candado, siempre activo; tocarlo solo lo recuerda.
         compose.onNode(hasContentDescription("Sirena, peligro")).performClick()
