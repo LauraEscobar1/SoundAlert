@@ -29,6 +29,18 @@ class HoneycombTest {
     }
 
     @Test
+    fun `cada celda tiene una zona tactil de 48 dp - los centros vecinos estan a 48 o mas`() {
+        // El toque va a la celda más cercana: la zona de cada una mide, entre lados
+        // opuestos, la distancia a su vecina más próxima.
+        for (a in slots.indices) {
+            val nearest = slots.indices.filter { it != a }.minOf { b -> hypot(slots[a].x - slots[b].x, slots[a].y - slots[b].y) }
+            assertTrue("celda $a: $nearest", nearest >= 48f)
+        }
+        // El tamaño visible de las celdas no cambia (radio 26: 45 × 52).
+        assertEquals(26f, HEX_RADIUS)
+    }
+
+    @Test
     fun `todo el panal cabe en la esfera de 192`() {
         for (slot in slots) {
             // Vértices de cada hexágono (con el desplazamiento vertical del encabezado).

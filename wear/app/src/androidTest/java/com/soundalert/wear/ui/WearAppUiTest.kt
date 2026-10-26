@@ -1,5 +1,6 @@
 package com.soundalert.wear.ui
 
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
@@ -9,6 +10,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -83,6 +85,8 @@ class WearAppUiTest {
         compose.onNodeWithText("Contexto").assertExists()
         compose.onNodeWithText("MANUAL").assertExists()
         compose.onNodeWithText("Otro").assertExists()
+        // Zona táctil de cada fila: al menos 48 dp (la píldora visible es más baja).
+        listOf("Casa", "Calle", "Otro").forEach { compose.onNodeWithText(it).assertHeightIsAtLeast(48.dp) }
         compose.onNodeWithText("Calle").performClick()
         compose.waitUntil(3_000) { compose.onAllNodes(hasContentDescription("Contexto: Calle")).fetchSemanticsNodes().isNotEmpty() }
         assertEquals(SoundAlertContext.CALLE, SoundAlertRuntime.contextManager.current)

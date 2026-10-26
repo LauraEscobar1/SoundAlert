@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.material3.Text
 import com.soundalert.wear.R
@@ -67,8 +68,8 @@ fun ContextContent(options: List<SoundAlertContext>, current: SoundAlertContext,
                 Spacer(Modifier.width(5.mdp))
                 Text(CONTEXT_SOURCE_TAG, style = SaText.tag, color = SaColors.Brown, maxLines = 1)
             }
-            // Filas con zona táctil de 46 (fila visible de 36 + margen): 138 en total, centradas en y≈106.
-            Column(Modifier.align(Alignment.Center).offset(y = 10.mdp)) {
+            // Filas con zona táctil de 48 (fila visible de 36 + margen): 144 en total, centradas en y≈104.
+            Column(Modifier.align(Alignment.Center).offset(y = 8.mdp)) {
                 options.forEachIndexed { index, option ->
                     ContextRow(
                         option,
@@ -86,16 +87,20 @@ fun ContextContent(options: List<SoundAlertContext>, current: SoundAlertContext,
     }
 }
 
-/** Fila resaltada: vidrio con texto e icono en tinta. Resto: café al 10 % con texto café. */
+/**
+ * Fila resaltada: vidrio con texto e icono en tinta. Resto: café al 10 % con texto café.
+ * La píldora visible mide 36 de alto; la zona táctil, al menos 48 dp.
+ */
 @Composable
 private fun ContextRow(option: SoundAlertContext, highlighted: Boolean, isCurrent: Boolean, onClick: () -> Unit, scale: WatchScale) = with(scale) {
     val content = if (highlighted) SaColors.Ink else SaColors.Brown
+    val touch = maxOf(MIN_TOUCH, 48.mdp)
     Box(
         Modifier
-            .size(width = 120.mdp, height = 46.mdp)
+            .size(width = 120.mdp, height = touch)
             .clickable(role = Role.RadioButton, onClick = onClick)
             .semantics { selected = isCurrent }
-            .padding(vertical = 5.mdp),
+            .padding(vertical = (touch - 36.mdp) / 2),
         contentAlignment = Alignment.Center,
     ) {
         val shape = RoundedCornerShape(50)
@@ -113,6 +118,8 @@ private fun ContextRow(option: SoundAlertContext, highlighted: Boolean, isCurren
         }
     }
 }
+
+private val MIN_TOUCH = 48.dp
 
 /**
  * De dónde sale el contexto: hoy lo elige la persona (ContextManager). Pasará a "AUTO"

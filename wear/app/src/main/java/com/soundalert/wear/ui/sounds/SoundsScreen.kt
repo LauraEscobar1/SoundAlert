@@ -139,8 +139,9 @@ fun SoundsContent(
 
             val slots = honeycombSlots(HEX_RADIUS, HEX_GAP)
             val pageCells = pages[current]
-            // Cada toque va a la celda de centro más cercano: así cada una recibe toda su
-            // zona hexagonal (≈ 47 × 55 dp) sin pisar a sus vecinas.
+            // Cada toque va a la celda de centro más cercano: cada una recibe una zona
+            // hexagonal de 48 dp entre lados opuestos (los centros están a 48 dp) sin pisar a
+            // sus vecinas. En un panal 2 – 3 – 2, 7 cuadrados de 48 × 48 se solaparían.
             Box(
                 Modifier.fillMaxSize().pointerInput(pageCells) {
                     detectTapGestures { tap ->
@@ -289,9 +290,12 @@ fun honeycombSlots(radius: Float, gap: Float): List<HexSlot> {
     )
 }
 
-/** Radio de las celdas y hueco entre ellas, sobre 192: el panal mide 141 × 134. */
+/**
+ * Radio de las celdas y hueco entre ellas, sobre 192: los centros de celdas vecinas
+ * quedan a 48 (zona táctil mínima) y el panal mide 141 × 135.
+ */
 const val HEX_RADIUS = 26f
-const val HEX_GAP = 2.5f
+const val HEX_GAP = 3f
 
 /** El panal baja un poco respecto al centro de la esfera para dejar sitio al encabezado. */
 private const val HONEYCOMB_OFFSET_Y = 4f
