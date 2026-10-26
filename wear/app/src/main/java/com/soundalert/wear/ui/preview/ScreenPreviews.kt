@@ -19,7 +19,8 @@ import com.soundalert.wear.ui.context.ContextContent
 import com.soundalert.wear.ui.home.AnalyzingContent
 import com.soundalert.wear.ui.home.ListeningContent
 import com.soundalert.wear.ui.home.ListeningUi
-import com.soundalert.wear.ui.sessions.SessionClockContent
+import com.soundalert.wear.ui.sessions.SessionStackContent
+import com.soundalert.wear.ui.sessions.stackCards
 import com.soundalert.wear.ui.sessions.SessionDetailContent
 import com.soundalert.wear.ui.sounds.SoundsContent
 import com.soundalert.wear.ui.state.DetectionDisplay
@@ -92,10 +93,16 @@ private fun SoundsToastPreview() = SoundAlertTheme {
     SoundsContent(SoundAlertContext.CALLE, streetCells(), onToggle = {}, toast = toast, initialScrollDp = 60f)
 }
 
-@Preview(name = "H · Reloj de sesiones", device = SMALL_ROUND, showSystemUi = true)
+@Preview(name = "H · Pila de sesiones", device = SMALL_ROUND, showSystemUi = true)
 @Composable
-private fun SessionClockPreview() = SoundAlertTheme {
-    SessionClockContent(SESSIONS, selected = 2, nowMs = today(13, 15), is24Hour = true, onStep = {}, onOpen = {})
+private fun SessionStackPreview() = SoundAlertTheme {
+    SessionStackContent(stackCards(SESSIONS, today(13, 15)), nowMs = today(13, 15), is24Hour = true, onOpen = {})
+}
+
+@Preview(name = "H · Tu día", device = SMALL_ROUND, showSystemUi = true)
+@Composable
+private fun DayCardPreview() = SoundAlertTheme {
+    SessionStackContent(stackCards(SESSIONS, today(13, 15)), nowMs = today(13, 15), is24Hour = true, onOpen = {}, initialIndex = SESSIONS.size)
 }
 
 @Preview(name = "I · Detalle de sesión", device = SMALL_ROUND, showSystemUi = true)

@@ -102,11 +102,9 @@ class WearAppUiTest {
         compose.waitUntil(3_000) { compose.onAllNodes(hasText("Calle") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(hasContentDescription("Sirena, peligro")).assertExists()
 
-        // H: la página siguiente.
+        // H: la pila de sesiones, en la página siguiente.
         compose.onRoot().performTouchInput { swipeLeft() }
-        compose.waitUntil(3_000) {
-            compose.onAllNodes(hasText("GIRA LA CORONA") or hasText("Sin sesiones")).fetchSemanticsNodes().isNotEmpty()
-        }
+        compose.waitUntil(3_000) { compose.onAllNodes(hasText("Sesiones")).fetchSemanticsNodes().isNotEmpty() }
     }
 
     @Test

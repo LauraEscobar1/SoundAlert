@@ -1,5 +1,10 @@
 package com.soundalert.wear.ui.sessions
 
+import kotlin.math.sin
+import kotlin.math.cos
+import com.soundalert.wear.session.SessionEvent
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.Color
 import android.text.format.DateFormat
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -65,10 +70,10 @@ import java.time.ZoneId
 fun SessionDetailScreen(sessionId: String) {
     val all by SoundAlertRuntime.sessionTracker.sessions.collectAsStateWithLifecycle()
     val now = rememberNow(30_000)
-    val visible = visibleSessions(all, now)
+    val today = todaySessions(all, now)
     val session = all.firstOrNull { it.id == sessionId } ?: return
-    // Misma numeración que la esfera; una sesión que ya salió de ella se numera entre todas.
-    val (index, total) = visible.indexOf(session).takeIf { it >= 0 }?.let { it to visible.size } ?: (all.indexOf(session) to all.size)
+    // Numerada entre las sesiones de hoy (las de la pila); una de otro día, entre todas.
+    val (index, total) = today.indexOf(session).takeIf { it >= 0 }?.let { it to today.size } ?: (all.indexOf(session) to all.size)
     var selected by rememberSaveable(sessionId) { mutableIntStateOf(0) }
     SessionDetailContent(
         session = session,
@@ -181,3 +186,21 @@ private const val ARC_RADIUS = 76.9f
  */
 private const val END_LABEL_X = 61.5f
 private const val END_LABEL_Y = 140.7f
+
+/** Color del punto de un sonido: el de su nivel, o neutro si no alertó. */
+internal val SessionEvent.dotColor: Color get() = priority?.color ?: SILENT_DOT
+
+/** Sonidos que no alertaron: punto en vino al 45 %. */
+internal val SILENT_DOT = SaColors.Wine.copy(alpha = 0.45f)
+
+/** Punto de un evento con borde del color del fondo, para que se distinga sobre el arco. */
+private fun DrawScope.drawDot(at: Offset, radius: Float, color: Color, border: Float) {
+    drawCircle(SaColors.Background, radius = radius + border, center = at)
+    drawCircle(color, radius = radius, center = at)
+}
+
+/** Punto a [radius] px del centro en el ángulo (0° = las 12, en el sentido de las agujas). */
+private fun DrawScope.polar(degrees: Float, radius: Float): Offset {
+    val rad = Math.toRadians((degrees - 90f).toDouble())
+    return Offset(center.x + radius * cos(rad).toFloat(), center.y + radius * sin(rad).toFloat())
+}

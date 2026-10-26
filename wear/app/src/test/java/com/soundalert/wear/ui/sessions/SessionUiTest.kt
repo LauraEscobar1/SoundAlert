@@ -6,6 +6,7 @@ import com.soundalert.wear.rules.Priority
 import com.soundalert.wear.session.Session
 import com.soundalert.wear.session.SessionEvent
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
 import java.time.ZoneOffset
@@ -18,28 +19,76 @@ class SessionUiTest {
     private fun event(priority: Priority?, acknowledged: Boolean = false, atMs: Long = 0) =
         SessionEvent("a", SoundCategory.SIREN, priority, atMs, acknowledged)
 
+    private fun session(id: String, context: SoundAlertContext, from: String, to: String?, vararg events: SessionEvent) =
+        Session(id, context, at(from), to?.let(::at), events.toList())
+
+    private fun sound(at: String, priority: Priority?, acknowledged: Boolean = false, category: SoundCategory = SoundCategory.SIREN) =
+        SessionEvent(at, category, priority, at(at), acknowledged)
+
+    private val yesterday = Session("ayer", SoundAlertContext.CASA, at("06:00") - 86_400_000L, at("07:00") - 86_400_000L, emptyList())
+    private val morning = session("m", SoundAlertContext.CASA, "06:50", "07:40", sound("07:00", Priority.INFORMATION, true))
+    private val street = session(
+        "c", SoundAlertContext.CALLE, "07:40", "08:20",
+        sound("07:50", Priority.ATTENTION), sound("08:05", Priority.DANGER, true), sound("08:09", null), sound("08:14", Priority.ATTENTION),
+    )
+    private val now = session("n", SoundAlertContext.OTRO, "12:30", null, sound("12:40", Priority.INFORMATION))
+
     @Test
-    fun `la esfera es de 12 horas - las 3 y las 15 caen en el mismo sitio`() {
-        assertEquals(0f, dialAngle(at("00:00"), utc), 0.01f)
-        assertEquals(90f, dialAngle(at("03:00"), utc), 0.01f)
-        assertEquals(90f, dialAngle(at("15:00"), utc), 0.01f)
-        assertEquals(255f, dialAngle(at("08:30"), utc), 0.01f)
+    fun `la pila va de la sesion mas reciente a la mas antigua de hoy y termina en Tu dia`() {
+        val cards = stackCards(listOf(street, yesterday, now, morning), at("13:15"), utc)
+        assertEquals(listOf("n", "c", "m"), cards.dropLast(1).map { (it as StackCard.SessionCard).session.id })
+        assertTrue(cards.last() is StackCard.DayCard)
+        // Sin sesiones hoy, solo "Tu día".
+        assertEquals(1, stackCards(listOf(yesterday), at("13:15"), utc).size)
     }
 
     @Test
-    fun `arco de la sesion - proporcional, con un minimo visible y como mucho una vuelta`() {
-        assertEquals(110f, dialSweep(at("08:30"), at("12:10")), 0.01f)
-        assertEquals(MIN_SWEEP, dialSweep(at("08:30"), at("08:31")), 0.01f)
-        assertEquals(360f, dialSweep(at("00:00"), at("00:00") + 2 * DIAL_WINDOW_MS), 0.01f)
+    fun `Tu dia cuenta sesiones, tiempo escuchando, alertas por nivel y la mas tranquila`() {
+        val day = (stackCards(listOf(morning, street, now), at("13:15"), utc).last() as StackCard.DayCard).day
+        assertEquals(3, day.sessions)
+        // 50 min + 40 min + 45 min (la actual, hasta ahora).
+        assertEquals((50 + 40 + 45) * 60_000L, day.listeningMs)
+        assertEquals(Triple(1, 2, 2), Triple(day.danger, day.attention, day.information))
+        assertEquals("1 PELIGRO · 2 ATENCIÓN · 2 AVISO", levelsLine(day))
+        // Mañana: 1 alerta en 50 min; actual: 1 en 45; calle: 3 en 40. La más tranquila es la de la mañana.
+        assertEquals("m", day.calmest?.id)
+        assertEquals("SIN ALERTAS HOY", levelsLine(daySummary(emptyList(), at("13:15"))))
+        assertEquals(listOf("1 sesión", "4 sesiones"), listOf(sessionsText(1), sessionsText(4)))
     }
 
     @Test
-    fun `solo se ven las sesiones que tocan las ultimas 12 horas`() {
-        val now = at("20:00")
-        val old = Session("old", SoundAlertContext.CASA, at("06:00"), at("07:00"), emptyList())
-        val recent = Session("recent", SoundAlertContext.CALLE, at("07:40"), at("08:20"), emptyList())
-        val ongoing = Session("now", SoundAlertContext.CASA, at("19:00"), null, emptyList())
-        assertEquals(listOf("recent", "now"), visibleSessions(listOf(old, recent, ongoing), now).map { it.id })
+    fun `resumen de cada sesion`() {
+        assertEquals("4 sonidos · 1 peligro confirmado", sessionSummary(street))
+        assertEquals("1 sonido · 1 aviso", sessionSummary(now))
+        assertEquals("Sin alertas en esta sesión", sessionSummary(session("v", SoundAlertContext.CASA, "09:00", "09:30")))
+        assertEquals("2 sonidos · sin alertas", sessionSummary(session("s", SoundAlertContext.CASA, "09:00", "09:30", sound("09:01", null), sound("09:02", null))))
+        assertEquals("2 sonidos · 2 peligros sin confirmar", sessionSummary(session("d", SoundAlertContext.CALLE, "09:00", "09:30", sound("09:01", Priority.DANGER), sound("09:02", Priority.DANGER, true))))
+    }
+
+    @Test
+    fun `al soltar, la pila avanza o retrocede una tarjeta solo pasado el umbral`() {
+        assertEquals(1, settleIndex(current = 0, offset = 0.45f, count = 4))
+        assertEquals(0, settleIndex(current = 0, offset = 0.2f, count = 4))
+        assertEquals(1, settleIndex(current = 2, offset = -0.5f, count = 4))
+        assertEquals(2, settleIndex(current = 2, offset = -0.1f, count = 4))
+        // En los extremos no se sale de la pila.
+        assertEquals(3, settleIndex(current = 3, offset = 0.9f, count = 4))
+        assertEquals(0, settleIndex(current = 0, offset = -0.9f, count = 4))
+    }
+
+    @Test
+    fun `las tarjetas de atras se mueven escalonadas, sin saltos al empezar ni al terminar`() {
+        for (d in listOf(0f, 1f, 2f, 3f)) assertEquals(d, staggered(d), 0.0001f)
+        assertEquals(-0.4f, staggered(-0.4f), 0.0001f)
+        // A medio camino, la de atrás todavía no ha avanzado tanto como la de delante.
+        assertTrue(staggered(1.5f) > 1.5f)
+        assertTrue(staggered(2.5f) > staggered(1.5f) + 1f)
+    }
+
+    @Test
+    fun `solo cuentan las sesiones que tocan el dia local`() {
+        val late = Session("tarde", SoundAlertContext.CASA, at("00:00") - 3_600_000L, at("00:30"), emptyList())
+        assertEquals(listOf("tarde", "m"), todaySessions(listOf(morning, yesterday, late), at("13:00"), utc).map { it.id })
     }
 
     @Test

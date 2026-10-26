@@ -2,6 +2,7 @@ package com.soundalert.wear.ui
 
 import android.Manifest
 import android.text.format.DateFormat
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onRoot
@@ -94,15 +95,14 @@ class SessionFlowUiTest {
         val events = mine()
         assertEquals(listOf(Priority.DANGER, Priority.ATTENTION, Priority.INFORMATION, null), events.map { it.priority })
 
-        // Reloj de sesiones (tercera página): la sesión actual con un conteo por nivel.
+        // Pila de sesiones (tercera página): la sesión actual, al frente, con su resumen.
         compose.onRoot().performTouchInput { swipeLeft() }
         compose.onRoot().performTouchInput { swipeLeft() }
-        for (count in listOf("1 peligro", "1 atención", "1 aviso", "sin alerta")) {
-            compose.waitUntil(5_000) { compose.onAllNodes(hasText(count, substring = true)).fetchSemanticsNodes().isNotEmpty() }
-        }
+        val card = hasText("1 peligro confirmado", substring = true) and hasClickAction()
+        compose.waitUntil(5_000) { compose.onAllNodes(card).fetchSemanticsNodes().isNotEmpty() }
 
         // Detalle: el primer sonido de la sesión con su hora local, y la corona pasa al siguiente.
-        compose.onNode(hasText("GIRA LA CORONA", substring = true)).performClick()
+        compose.onNode(card).performClick()
         val is24 = DateFormat.is24HourFormat(app)
         // El detalle empieza en el primer sonido de la sesión: se avanza con la corona hasta los del test.
         val smoke = events[0]

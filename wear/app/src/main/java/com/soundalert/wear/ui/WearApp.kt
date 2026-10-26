@@ -21,7 +21,7 @@ import com.soundalert.wear.ui.components.LocalAmbient
 import com.soundalert.wear.ui.context.ContextScreen
 import com.soundalert.wear.ui.diagnostic.DiagnosticScreen
 import com.soundalert.wear.ui.home.HomeScreen
-import com.soundalert.wear.ui.sessions.SessionClockScreen
+import com.soundalert.wear.ui.sessions.SessionStackScreen
 import com.soundalert.wear.ui.sessions.SessionDetailScreen
 import com.soundalert.wear.ui.sounds.SoundsScreen
 import com.soundalert.wear.ui.state.alertOnScreen
@@ -37,10 +37,10 @@ private object Routes {
 
 /**
  * Navegación de reloj:
- * - Inicio: páginas horizontales  A/B · Escuchando  →  G · Sonidos  →  H · Reloj de sesiones
+ * - Inicio: páginas horizontales  A/B · Escuchando  →  G · Sonidos  →  H · Pila de sesiones
  *   (indicador de página abajo; se desliza con el dedo).
  * - F · Contexto: tocando el botón del contexto en A o el encabezado de G. Se vuelve deslizando hacia la derecha.
- * - I · Detalle de sesión: tocando la esfera de H. Se vuelve deslizando hacia la derecha.
+ * - I · Detalle de sesión: tocando una tarjeta de sesión de H. Se vuelve deslizando hacia la derecha.
  * - C/D/E · Alertas: aparecen encima de cualquier pantalla mientras haya una alerta ACTIVE.
  * - Modo ambiente: se muestra el reposo atenuado, salvo que haya una alerta.
  */
@@ -89,7 +89,7 @@ private fun HomePager(onOpenContext: () -> Unit, onOpenDiagnostic: (() -> Unit)?
                 when (page) {
                     0 -> HomeScreen(onOpenContext, onOpenDiagnostic)
                     1 -> SoundsScreen(visible = pagerState.currentPage == page, onOpenContext = onOpenContext)
-                    else -> SessionClockScreen(visible = pagerState.currentPage == page, onOpen = onOpenSession)
+                    else -> SessionStackScreen(visible = pagerState.currentPage == page, onOpen = onOpenSession)
                 }
             }
         }
