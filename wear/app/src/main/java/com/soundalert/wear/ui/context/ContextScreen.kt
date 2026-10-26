@@ -1,59 +1,119 @@
 package com.soundalert.wear.ui.context
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.wear.compose.foundation.lazy.items
+import androidx.wear.compose.material3.Text
 import com.soundalert.wear.R
 import com.soundalert.wear.SoundAlertRuntime
 import com.soundalert.wear.context.SoundAlertContext
-import com.soundalert.wear.ui.components.ListFootnote
 import com.soundalert.wear.ui.components.FitText
 import com.soundalert.wear.ui.components.GlyphIcon
-import com.soundalert.wear.ui.components.ListRow
-import com.soundalert.wear.ui.components.WatchList
+import com.soundalert.wear.ui.components.WatchScale
+import com.soundalert.wear.ui.components.WatchScreen
+import com.soundalert.wear.ui.components.glass
+import com.soundalert.wear.ui.components.rotarySteps
 import com.soundalert.wear.ui.icon
 import com.soundalert.wear.ui.theme.SaColors
 import com.soundalert.wear.ui.theme.SaText
 
 /**
- * D · Contexto. Solo los contextos activos (CASA, CALLE, OTRO). Es MANUAL: lo elige
- * la persona y se guarda en el reloj (ContextManager + ContextStore); el siguiente
- * sonido ya usa el nuevo contexto, sin reiniciar el micrófono ni YAMNet.
+ * F · Contexto: los contextos activos (CASA, CALLE, OTRO). La corona mueve el vidrio
+ * de fila en fila y un toque aplica ese contexto (ContextManager + ContextStore); el
+ * siguiente sonido ya lo usa, sin reiniciar el micrófono ni YAMNet. El check marca el
+ * contexto actual.
  */
 @Composable
 fun ContextScreen(onSelected: () -> Unit) {
     val current by SoundAlertRuntime.contextManager.context.collectAsStateWithLifecycle()
-    WatchList(title = "Contexto", tag = "MANUAL") { spec ->
-        items(SoundAlertContext.ACTIVE) { option ->
-            val selected = option == current
-            val content = if (selected) SaColors.Background else SaColors.OnSurface
-            ListRow(
-                spec = spec,
-                container = if (selected) SaColors.OnSurface else SaColors.Surface,
-                start = 11.3.dp,
-                end = 10.8.dp,
-                role = Role.RadioButton,
-                modifier = Modifier.semantics { this.selected = selected },
-                onClick = {
-                    SoundAlertRuntime.contextManager.set(option)
-                    onSelected()
-                },
-            ) {
-                // Mockup: dibujo del icono de 9 de alto, texto a 8,6 del icono, ✓ a la derecha.
-                GlyphIcon(option.icon, glyphHeight = 9.dp, tint = content, maxGlyphWidth = 10.dp)
-                Spacer(Modifier.width(8.6.dp))
-                FitText(option.label, SaText.row, content, Modifier.weight(1f), maxLines = 2)
-                if (selected) GlyphIcon(R.drawable.ic_check, glyphHeight = 7.dp, tint = content)
+    ContextContent(
+        options = SoundAlertContext.ACTIVE,
+        current = current,
+        onSelect = {
+            SoundAlertRuntime.contextManager.set(it)
+            onSelected()
+        },
+    )
+}
+
+@Composable
+fun ContextContent(options: List<SoundAlertContext>, current: SoundAlertContext, onSelect: (SoundAlertContext) -> Unit) {
+    var cursor by rememberSaveable { mutableIntStateOf(options.indexOf(current).coerceAtLeast(0)) }
+    WatchScreen(Modifier.rotarySteps { cursor = (cursor + it).coerceIn(0, options.lastIndex) }) { scale ->
+        with(scale) {
+            Row(Modifier.align(Alignment.TopCenter).padding(top = 19.mdp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Contexto", style = SaText.screenTitle, color = SaColors.Ink, maxLines = 1)
+                Spacer(Modifier.width(5.mdp))
+                // Etiqueta del diseño: el contexto se detectará por ubicación y movimiento.
+                Text(CONTEXT_SOURCE_TAG, style = SaText.tag, color = SaColors.Brown, maxLines = 1)
+            }
+            // Filas con zona táctil de 46 (fila visible de 36 + margen): 138 en total, centradas en y≈106.
+            Column(Modifier.align(Alignment.Center).offset(y = 10.mdp)) {
+                options.forEachIndexed { index, option ->
+                    ContextRow(
+                        option,
+                        highlighted = index == cursor,
+                        isCurrent = option == current,
+                        onClick = {
+                            cursor = index
+                            onSelect(option)
+                        },
+                        scale = scale,
+                    )
+                }
             }
         }
-        item { ListFootnote(spec, "Lo eliges tú. Cada contexto vigila sus propios sonidos.") }
     }
 }
+
+/** Fila resaltada: vidrio con texto e icono en tinta. Resto: café al 10 % con texto café. */
+@Composable
+private fun ContextRow(option: SoundAlertContext, highlighted: Boolean, isCurrent: Boolean, onClick: () -> Unit, scale: WatchScale) = with(scale) {
+    val content = if (highlighted) SaColors.Ink else SaColors.Brown
+    Box(
+        Modifier
+            .size(width = 120.mdp, height = 46.mdp)
+            .clickable(role = Role.RadioButton, onClick = onClick)
+            .semantics { selected = isCurrent }
+            .padding(vertical = 5.mdp),
+        contentAlignment = Alignment.Center,
+    ) {
+        val shape = RoundedCornerShape(50)
+        Row(
+            Modifier
+                .fillMaxSize()
+                .then(if (highlighted) Modifier.glass(shape) else Modifier.clip(shape).background(SaColors.BrownFaint))
+                .padding(start = 12.mdp, end = 11.mdp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            GlyphIcon(option.icon, glyphHeight = 10.mdp, maxGlyphWidth = 11.mdp, tint = content)
+            Spacer(Modifier.width(8.mdp))
+            FitText(option.label, SaText.row, content, Modifier.weight(1f))
+            if (isCurrent) GlyphIcon(R.drawable.ic_check, glyphHeight = 7.5.mdp, tint = content, contentDescription = "Actual")
+        }
+    }
+}
+
+/** "AUTO" según el diseño; hoy el contexto lo elige la persona (ContextManager). */
+private const val CONTEXT_SOURCE_TAG = "AUTO"
