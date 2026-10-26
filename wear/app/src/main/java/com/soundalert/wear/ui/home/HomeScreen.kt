@@ -126,7 +126,8 @@ fun listeningUi(status: PipelineStatus.Snapshot, permissionDenied: Boolean, summ
 /**
  * A · Escuchando: hora y chip del contexto arriba, núcleo en el centro y título con
  * los sonidos vigilados abajo. Medidas sobre 192: hora en y≈18–30, chip en y≈34–50,
- * disco central de 48 en el centro de la esfera, título en y≈136 y subtítulo en y≈154.
+ * disco central de 48 en el centro de la esfera, título en y≈134 y subtítulo en y≈152,
+ * dentro del arco que gira.
  */
 @Composable
 fun ListeningContent(
@@ -165,7 +166,7 @@ fun ListeningContent(
                     ContextChip(context, onOpenContext, scale)
                 }
             }
-            Column(Modifier.align(Alignment.BottomCenter).padding(bottom = 26.mdp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.align(Alignment.BottomCenter).padding(bottom = 28.mdp), horizontalAlignment = Alignment.CenterHorizontally) {
                 FitText(ui.title, SaText.title, ink, Modifier.width(130.mdp))
                 Spacer(Modifier.height(1.5.mdp))
                 FitText(ui.subtitle, SaText.body, secondary, Modifier.width(112.mdp), maxLines = 2)
@@ -194,10 +195,10 @@ fun AnalyzingContent(detection: DetectionDisplay, note: String?) {
                 Modifier.align(Alignment.TopCenter).padding(top = 30.mdp).width(100.mdp),
             )
             Column(
-                Modifier.align(Alignment.BottomCenter).padding(bottom = 22.mdp).semantics(mergeDescendants = true) {},
+                Modifier.align(Alignment.BottomCenter).padding(bottom = 26.mdp).semantics(mergeDescendants = true) {},
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                FitText("Sonido detectado", SaText.title, ink, Modifier.width(140.mdp))
+                FitText("Sonido detectado", SaText.title, ink, Modifier.width(128.mdp))
                 Spacer(Modifier.height(2.mdp))
                 Row(Modifier.width(118.mdp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                     FitText(SoundUi.possible(detection.category), SaText.body, secondary, Modifier.weight(1f, fill = false))

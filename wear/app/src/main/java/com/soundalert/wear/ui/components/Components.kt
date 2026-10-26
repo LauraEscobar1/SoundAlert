@@ -214,10 +214,13 @@ fun GlassToast(state: ToastState, scale: WatchScale, modifier: Modifier = Modifi
         }
     }
     val message = state.message ?: return@with
+    // Vidrio sobre una base opaca: lo que hay debajo no se transparenta en el texto.
+    val shape = RoundedCornerShape(50)
     Box(
         modifier
-            .glass()
-            .background(SaColors.Peach.copy(alpha = 0.55f))
+            .clip(shape)
+            .background(SaColors.Peach)
+            .glass(shape)
             .semantics { liveRegion = LiveRegionMode.Polite }
             .padding(horizontal = 9.mdp, vertical = 5.mdp),
         contentAlignment = Alignment.Center,
