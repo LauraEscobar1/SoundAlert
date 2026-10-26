@@ -14,6 +14,9 @@ import kotlinx.coroutines.flow.StateFlow
  *
  * Solo se pueden apagar sonidos que tienen regla por defecto en el contexto; encender
  * uno lo devuelve a su prioridad por defecto. Se guarda por contexto en [store].
+ *
+ * Los sonidos de peligro (sirena, alarma de incendio, detector de humo) no se pueden
+ * apagar: [setEnabled] los ignora y lo que hubiera guardado para ellos se descarta.
  */
 class SoundToggles(private val store: SoundToggleStore? = null) {
 
@@ -25,20 +28,29 @@ class SoundToggles(private val store: SoundToggleStore? = null) {
 
     fun isEnabled(context: SoundAlertContext, category: SoundCategory): Boolean = category !in state.value[context].orEmpty()
 
-    fun setEnabled(context: SoundAlertContext, category: SoundCategory, enabled: Boolean) = synchronized(lock) {
+    /** Un sonido de peligro está siempre activo, por seguridad. */
+    fun isLocked(category: SoundCategory): Boolean = category.danger
+
+    /** Devuelve false si no se pudo aplicar (apagar un sonido de peligro). */
+    fun setEnabled(context: SoundAlertContext, category: SoundCategory, enabled: Boolean): Boolean = synchronized(lock) {
+        if (!enabled && isLocked(category)) {
+            Log.w(TAG, "$category es de peligro: siempre activo, no se puede apagar")
+            return@synchronized false
+        }
         val current = state.value[context].orEmpty()
         val updated = if (enabled) current - category else current + category
-        if (updated == current) return@synchronized
+        if (updated == current) return@synchronized true
         state.value = state.value + (context to updated)
         store?.save(context.name, updated.map { it.name }.toSet())
         Log.i(TAG, "$category en $context -> ${if (enabled) "activado" else "desactivado"}")
+        true
     }
 
     private fun restore(): Map<SoundAlertContext, Set<SoundCategory>> {
         val saved = store?.load() ?: return emptyMap()
         return saved.mapNotNull { (contextName, names) ->
             val context = SoundAlertContext.entries.firstOrNull { it.name == contextName } ?: return@mapNotNull null
-            context to names.mapNotNull { name -> SoundCategory.entries.firstOrNull { it.name == name } }.toSet()
+            context to names.mapNotNull { name -> SoundCategory.entries.firstOrNull { it.name == name }?.takeUnless(::isLocked) }.toSet()
         }.toMap()
     }
 

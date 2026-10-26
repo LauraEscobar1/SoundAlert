@@ -70,8 +70,13 @@ fun alertOnScreen(alerts: List<Alert>): Alert? =
     alerts.filter { it.status == AlertStatus.ACTIVE }
         .minWithOrNull(compareBy<Alert> { it.priority.ordinal }.thenByDescending { it.createdAtMs })
 
-/** Celda del panal G. [enabled] false: el usuario la apagó en este contexto (no alerta). */
-data class SoundCell(val category: SoundCategory, val priority: Priority, val enabled: Boolean)
+/**
+ * Celda del panal G. [enabled] false: el usuario la apagó en este contexto (no alerta).
+ * [locked]: sonido de peligro, siempre activo por seguridad.
+ */
+data class SoundCell(val category: SoundCategory, val priority: Priority, val enabled: Boolean) {
+    val locked: Boolean get() = priority == Priority.DANGER
+}
 
 /**
  * Pantalla G: los sonidos REALES que se pueden vigilar en [context] (reglas de la tabla

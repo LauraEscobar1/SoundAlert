@@ -95,7 +95,13 @@ class ScreenStateTest {
             assertTrue(cells.all { it.enabled })
         }
         toggles.setEnabled(SoundAlertContext.CALLE, SoundCategory.DOG_BARK, enabled = false)
+        toggles.setEnabled(SoundAlertContext.CALLE, SoundCategory.SIREN, enabled = false)
         val street = soundCells(SoundAlertContext.CALLE, rules).associateBy { it.category }
+        // Peligro: con candado y siempre activo, aunque se intente apagar.
+        assertEquals(SoundCell(SoundCategory.SIREN, Priority.DANGER, enabled = true), street[SoundCategory.SIREN])
+        assertTrue(street.getValue(SoundCategory.SIREN).locked)
+        assertTrue(street.values.filter { it.locked }.all { it.priority == Priority.DANGER && it.enabled })
+        assertEquals(false, street.getValue(SoundCategory.DOG_BARK).locked)
         assertEquals(SoundCell(SoundCategory.DOG_BARK, Priority.INFORMATION, enabled = false), street[SoundCategory.DOG_BARK])
         assertEquals(Priority.ATTENTION, street.getValue(SoundCategory.CAR_HORN).priority)
         // El timbre de la puerta no se vigila en la calle: no es una celda.

@@ -45,6 +45,7 @@ import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.material3.Text
+import com.soundalert.wear.R
 import com.soundalert.wear.SoundAlertRuntime
 import com.soundalert.wear.context.SoundAlertContext
 import com.soundalert.wear.ui.SoundUi
@@ -72,7 +73,8 @@ import kotlin.math.sqrt
  *
  * Son las reglas reales del reloj para ese contexto. Tocar una celda la enciende o la
  * apaga (SoundToggles, guardado por contexto) y el RuleEngine lo aplica a la siguiente
- * detección. Si hay más de 7 sonidos, la corona (o deslizar en vertical) pasa de página.
+ * detección. Los sonidos de peligro llevan un candado: siempre están activos y tocarlos
+ * solo lo recuerda. Si hay más de 7 sonidos, la corona (o deslizar en vertical) pasa de página.
  */
 @Composable
 fun SoundsScreen(visible: Boolean) {
@@ -87,9 +89,12 @@ fun SoundsScreen(visible: Boolean) {
         page = page,
         onPage = { page = it },
         onToggle = { cell ->
-            SoundAlertRuntime.soundToggles.setEnabled(context, cell.category, !cell.enabled)
             val name = SoundUi.shortName(cell.category)
-            toast.show(if (cell.enabled) "$name desactivado" else "$name activado ✓")
+            when {
+                cell.locked -> toast.show(LOCKED_TOAST)
+                SoundAlertRuntime.soundToggles.setEnabled(context, cell.category, !cell.enabled) ->
+                    toast.show(if (cell.enabled) "$name desactivado" else "$name activado ✓")
+            }
         },
         toast = toast,
         visible = visible,
@@ -173,7 +178,8 @@ fun SoundsContent(
 /**
  * Celda hexagonal con la punta arriba. Encendida: vidrio con borde blanco al 45 % y
  * texto en tinta. Apagada: contorno punteado café, icono al 45 % tachado en diagonal.
- * El punto de arriba a la derecha es el color de su nivel (borde del color del fondo).
+ * El punto de arriba a la derecha es el color de su nivel (borde del color del fondo);
+ * las de peligro llevan además un candado arriba a la izquierda y no se apagan.
  */
 @Composable
 private fun HexCell(cell: SoundCell, onToggle: () -> Unit, scale: WatchScale, modifier: Modifier = Modifier) = with(scale) {
@@ -187,11 +193,15 @@ private fun HexCell(cell: SoundCell, onToggle: () -> Unit, scale: WatchScale, mo
             .then(if (cell.enabled) Modifier.background(SaColors.Glass).border(1.dp, SaColors.GlassBorder, HexShape) else Modifier)
             // Los toques los reparte el panal (celda más cercana); aquí solo la semántica.
             .semantics {
-                role = Role.Switch
-                toggleableState = ToggleableState(cell.enabled)
                 contentDescription = "$name, ${cell.priority.label.lowercase()}"
-                stateDescription = if (cell.enabled) "activado" else "desactivado"
-                onClick(label = if (cell.enabled) "Desactivar" else "Activar") { onToggle(); true }
+                if (cell.locked) {
+                    stateDescription = "siempre activo"
+                } else {
+                    role = Role.Switch
+                    toggleableState = ToggleableState(cell.enabled)
+                    stateDescription = if (cell.enabled) "activado" else "desactivado"
+                }
+                onClick(label = if (cell.locked) null else if (cell.enabled) "Desactivar" else "Activar") { onToggle(); true }
             },
         contentAlignment = Alignment.Center,
     ) {
@@ -224,8 +234,15 @@ private fun HexCell(cell: SoundCell, onToggle: () -> Unit, scale: WatchScale, mo
             FitText(name, SaText.cell, if (cell.enabled) SaColors.Ink else SaColors.Brown, Modifier.width(width * 0.78f), maxLines = 2)
         }
         LevelDot(cell, scale, Modifier.align(Alignment.TopEnd).offset(x = (-6.5).mdp, y = 10.mdp))
+        if (cell.locked) {
+            // Candado en lugar de la opción de apagar: peligro siempre activo.
+            GlyphIcon(R.drawable.ic_lock, glyphHeight = 6.mdp, tint = SaColors.Ink, modifier = Modifier.align(Alignment.TopStart).offset(x = 8.mdp, y = 9.5.mdp))
+        }
     }
 }
+
+/** Toast al tocar un sonido de peligro. */
+const val LOCKED_TOAST = "Siempre activo por seguridad"
 
 @Composable
 private fun LevelDot(cell: SoundCell, scale: WatchScale, modifier: Modifier) = with(scale) {

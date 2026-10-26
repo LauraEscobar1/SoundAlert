@@ -2,7 +2,9 @@ package com.soundalert.wear.rules
 
 import com.soundalert.wear.classifier.SoundCategory.CAR_HORN
 import com.soundalert.wear.classifier.SoundCategory.DOG_BARK
+import com.soundalert.wear.classifier.SoundCategory.FIRE_ALARM
 import com.soundalert.wear.classifier.SoundCategory.SIREN
+import com.soundalert.wear.classifier.SoundCategory.SMOKE_ALARM
 import com.soundalert.wear.context.SoundAlertContext.CALLE
 import com.soundalert.wear.context.SoundAlertContext.CASA
 import org.junit.Assert.assertEquals
@@ -34,12 +36,38 @@ class SoundTogglesTest {
     }
 
     @Test
-    fun `tambien se puede apagar un sonido de peligro`() {
-        val toggles = SoundToggles()
+    fun `los sonidos de peligro no se pueden apagar`() {
+        val store = MemoryStore()
+        val toggles = SoundToggles(store)
         val engine = RuleEngine(toggles = toggles)
-        toggles.setEnabled(CALLE, SIREN, enabled = false)
-        assertNull(engine.match(SIREN, CALLE))
-        assertEquals(Priority.DANGER, engine.match(SIREN, CASA)?.priority)
+        for (category in listOf(SIREN, FIRE_ALARM, SMOKE_ALARM)) {
+            assertTrue(toggles.isLocked(category))
+            assertFalse(toggles.setEnabled(CALLE, category, enabled = false))
+            assertTrue(toggles.isEnabled(CALLE, category))
+            assertEquals(Priority.DANGER, engine.match(category, CALLE)?.priority)
+            assertTrue(engine.isEnabled(CALLE, category))
+        }
+        // No se guarda nada y encenderlos (ya lo están) no falla.
+        assertTrue(store.saved.isEmpty())
+        assertTrue(toggles.setEnabled(CALLE, SIREN, enabled = true))
+        assertFalse(toggles.isLocked(DOG_BARK))
+    }
+
+    @Test
+    fun `un peligro guardado como apagado se restaura activo`() {
+        val toggles = SoundToggles(MemoryStore(mutableMapOf("CALLE" to setOf("SIREN", "DOG_BARK"))))
+        assertEquals(mapOf(CALLE to setOf(DOG_BARK)), toggles.disabled.value)
+        assertEquals(Priority.DANGER, RuleEngine(toggles = toggles).match(SIREN, CALLE)?.priority)
+    }
+
+    @Test
+    fun `una regla de peligro se aplica aunque la tabla de apagados diga lo contrario`() {
+        // Regla DANGER para una categoría que no es de peligro: el motor tampoco la deja sin regla.
+        val toggles = SoundToggles()
+        val engine = RuleEngine(mapOf(CALLE to mapOf(DOG_BARK to Priority.DANGER)), toggles)
+        toggles.setEnabled(CALLE, DOG_BARK, enabled = false)
+        assertEquals(Priority.DANGER, engine.match(DOG_BARK, CALLE)?.priority)
+        assertEquals(listOf(DOG_BARK), engine.rulesFor(CALLE).map { it.category })
     }
 
     @Test

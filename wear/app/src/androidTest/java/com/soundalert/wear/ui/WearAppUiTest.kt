@@ -107,6 +107,11 @@ class WearAppUiTest {
         compose.waitUntil(3_000) { compose.onAllNodes(hasText("Bebé desactivado")).fetchSemanticsNodes().isNotEmpty() }
         assertNull(SoundAlertRuntime.ruleEngine.match(SoundCategory.BABY_CRYING, SoundAlertContext.CASA))
         assertEquals(Priority.INFORMATION, SoundAlertRuntime.ruleEngine.match(SoundCategory.BABY_CRYING, SoundAlertContext.OTRO)?.priority)
+
+        // Peligro: candado, siempre activo; tocarlo solo lo recuerda.
+        compose.onNode(hasContentDescription("Sirena, peligro")).performClick()
+        compose.waitUntil(3_000) { compose.onAllNodes(hasText("Siempre activo por seguridad")).fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(Priority.DANGER, SoundAlertRuntime.ruleEngine.match(SoundCategory.SIREN, SoundAlertContext.CASA)?.priority)
     }
 
     @Test
