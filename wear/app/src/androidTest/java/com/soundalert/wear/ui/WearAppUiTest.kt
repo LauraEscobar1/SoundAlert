@@ -18,8 +18,11 @@ import com.soundalert.wear.alert.AlertStatus
 import com.soundalert.wear.classifier.SoundCategory
 import com.soundalert.wear.context.SoundAlertContext
 import com.soundalert.wear.detection.DetectionEvent
+import com.soundalert.wear.pipeline.PipelineStatus
+import com.soundalert.wear.rules.Priority
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -55,6 +58,8 @@ class WearAppUiTest {
     fun tearDown() {
         val alerts = SoundAlertRuntime.alertManager(app)
         alerts.activeAlerts.forEach { alerts.acknowledge(it.id) }
+        SoundAlertRuntime.soundToggles.setEnabled(SoundAlertContext.CASA, SoundCategory.BABY_CRYING, enabled = true)
+        PipelineStatus.reset()
         SoundAlertRuntime.contextManager.set(original)
         scenario.close()
     }
@@ -67,27 +72,41 @@ class WearAppUiTest {
         SoundAlertRuntime.alertManager(app).alerts.value.first { it.category == category }
 
     @Test
-    fun reposoMuestraContextoYNavegaAContextoSonidosEHistorial() {
+    fun reposoMuestraContextoYNavegaAContextoSonidosYSesiones() {
         compose.onNodeWithContentDescription("Contexto: Casa").assertExists()
         // Sin el servicio de escucha arrancado (el test no usa el micrófono).
         compose.onNodeWithText("En pausa").assertExists()
-        compose.onNodeWithText("Toca para escuchar").assertExists()
+        compose.onNodeWithText("Toca el núcleo para escuchar").assertExists()
 
-        // D · Contexto: solo CASA, CALLE y OTRO; elegir CALLE vuelve al reposo con el nuevo contexto.
+        // F · Contexto: solo CASA, CALLE y OTRO; elegir CALLE vuelve al reposo con el nuevo contexto.
         compose.onNodeWithContentDescription("Contexto: Casa").performClick()
         compose.onNodeWithText("Contexto").assertExists()
+        compose.onNodeWithText("AUTO").assertExists()
         compose.onNodeWithText("Otro").assertExists()
         compose.onNodeWithText("Calle").performClick()
         compose.waitUntil(3_000) { compose.onAllNodes(hasContentDescription("Contexto: Calle")).fetchSemanticsNodes().isNotEmpty() }
         assertEquals(SoundAlertContext.CALLE, SoundAlertRuntime.contextManager.current)
         assertEquals(0, compose.onAllNodes(hasText("Universidad")).fetchSemanticsNodes().size)
 
-        // E y F: páginas a la derecha del reposo.
+        // G y H: páginas a la derecha del reposo.
         compose.onRoot().performTouchInput { swipeLeft() }
-        compose.waitUntil(3_000) { compose.onAllNodes(hasText("Sonidos en calle")).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNode(hasContentDescription("Sirena: alerta en Calle, prioridad peligro")).assertExists()
+        compose.waitUntil(3_000) { compose.onAllNodes(hasText("TOCA PARA ACTIVAR", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasContentDescription("Sirena, peligro")).assertExists()
         compose.onRoot().performTouchInput { swipeLeft() }
-        compose.waitUntil(3_000) { compose.onAllNodes(hasText("Historial")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(3_000) {
+            compose.onAllNodes(hasText("GIRA LA CORONA") or hasText("Sin sesiones")).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    @Test
+    fun tocarUnaCeldaDelPanalApagaElSonidoEnEseContexto() {
+        compose.onRoot().performTouchInput { swipeLeft() }
+        // Primera página de Casa: peligro, atención y el primer aviso (bebé).
+        compose.waitUntil(3_000) { compose.onAllNodes(hasContentDescription("Bebé, aviso")).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasContentDescription("Bebé, aviso")).performClick()
+        compose.waitUntil(3_000) { compose.onAllNodes(hasText("Bebé desactivado")).fetchSemanticsNodes().isNotEmpty() }
+        assertNull(SoundAlertRuntime.ruleEngine.match(SoundCategory.BABY_CRYING, SoundAlertContext.CASA))
+        assertEquals(Priority.INFORMATION, SoundAlertRuntime.ruleEngine.match(SoundCategory.BABY_CRYING, SoundAlertContext.OTRO)?.priority)
     }
 
     @Test
@@ -102,31 +121,31 @@ class WearAppUiTest {
     }
 
     @Test
-    fun atencionSeCierraConUnToqueYQuedaEnElHistorial() {
+    fun atencionSeCierraConUnToqueYQuedaEnLaSesion() {
+        // La sesión empieza al escuchar (el estado del pipeline, sin micrófono).
+        PipelineStatus.update { it.copy(phase = PipelineStatus.Phase.LISTENING) }
+        compose.waitUntil(3_000) { SoundAlertRuntime.sessionTracker.sessions.value.lastOrNull()?.let { it.ongoing && it.context == SoundAlertContext.CASA } == true }
         detect(SoundCategory.GLASS_BREAK)
-        compose.waitUntil(3_000) { compose.onAllNodes(hasText("Vidrio roto")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(3_000) { compose.onAllNodes(hasText("VIDRIO ROTO")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("ATENCIÓN").assertExists()
         compose.onNodeWithText("Casa · ahora").assertExists()
 
-        compose.onNodeWithText("Vidrio roto").performClick()
+        compose.onNodeWithText("VIDRIO ROTO").performClick()
         compose.waitUntil(3_000) { compose.onAllNodes(hasText("ATENCIÓN")).fetchSemanticsNodes().isEmpty() }
         assertEquals(AlertStatus.ACKNOWLEDGED, alertOf(SoundCategory.GLASS_BREAK).status)
 
-        compose.onRoot().performTouchInput { swipeLeft() }
-        compose.onRoot().performTouchInput { swipeLeft() }
         compose.waitUntil(3_000) {
-            compose.onAllNodes(hasContentDescription("Vidrio roto, Casa, Confirmada", substring = true)).fetchSemanticsNodes().isNotEmpty()
+            SoundAlertRuntime.sessionTracker.sessions.value.lastOrNull()?.events?.any { it.category == SoundCategory.GLASS_BREAK && it.acknowledged } == true
         }
+        compose.onRoot().performTouchInput { swipeLeft() }
+        compose.onRoot().performTouchInput { swipeLeft() }
+        compose.waitUntil(3_000) { compose.onAllNodes(hasText("1 atención", substring = true)).fetchSemanticsNodes().isNotEmpty() }
     }
 
     @Test
-    fun soloRegistroNoAlertaPeroApareceEnElHistorial() {
+    fun soloRegistroNoAlerta() {
         detect(SoundCategory.BELL, 0.6f)
-        compose.onRoot().performTouchInput { swipeLeft() }
-        compose.onRoot().performTouchInput { swipeLeft() }
-        compose.waitUntil(3_000) {
-            compose.onAllNodes(hasContentDescription("Campana, Casa, Solo registro", substring = true)).fetchSemanticsNodes().isNotEmpty()
-        }
+        compose.waitForIdle()
         assertEquals(0, compose.onAllNodes(hasText("AVISO")).fetchSemanticsNodes().size)
         assertEquals(true, SoundAlertRuntime.alertManager(app).alerts.value.none { it.category == SoundCategory.BELL })
     }
