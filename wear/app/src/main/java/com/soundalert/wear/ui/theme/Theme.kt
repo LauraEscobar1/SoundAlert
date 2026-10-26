@@ -17,6 +17,8 @@ import com.soundalert.wear.R
  * solo se usan en las pantallas de alerta y en los indicadores de nivel.
  *
  * Contraste sobre el durazno: Ink 8,9:1, Brown 7,0:1; sobre el vidrio, Ink 7,0:1.
+ * Ink sobre los colores de alerta: peligro 4,7:1, atención 9,3:1, aviso 7,3:1
+ * (lo comprueba ContrastTest).
  */
 object SaColors {
     /** Fondo sólido de reposo, análisis, contexto, sonidos e historial. */
@@ -37,7 +39,7 @@ object SaColors {
     /** Filas y pistas tenues (café al 10 %). */
     val BrownFaint = Brown.copy(alpha = 0.10f)
 
-    val Danger = Color(0xFFE1251B)
+    val Danger = Color(0xFFF03A2E)
     val Attention = Color(0xFFF5A90A)
     val Information = Color(0xFF5BA8F5)
 
