@@ -17,10 +17,14 @@ import com.soundalert.wear.context.SharedPreferencesContextStore
 import com.soundalert.wear.context.ContextualClassifier
 import com.soundalert.wear.context.DetectionHistory
 import com.soundalert.wear.history.HistoryRepository
+import com.soundalert.wear.pipeline.PipelineStatus
 import com.soundalert.wear.rules.RuleEngine
 import com.soundalert.wear.rules.SharedPreferencesSoundToggleStore
 import com.soundalert.wear.rules.SoundToggleStore
 import com.soundalert.wear.rules.SoundToggles
+import com.soundalert.wear.session.FileSessionStore
+import com.soundalert.wear.session.SessionStore
+import com.soundalert.wear.session.SessionTracker
 import com.soundalert.wear.sync.BackendSync
 import com.soundalert.wear.sync.DeviceRegistration
 import com.soundalert.wear.sync.FileSyncStore
@@ -29,6 +33,10 @@ import com.soundalert.wear.vibration.AndroidAlertVibrator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import java.io.File
 
 /**
@@ -39,11 +47,13 @@ import java.io.File
 object SoundAlertRuntime {
     @Volatile private var contextStore: ContextStore? = null
     @Volatile private var toggleStore: SoundToggleStore? = null
+    @Volatile private var sessionStore: SessionStore? = null
 
     /** Lo llama SoundAlertApp al arrancar el proceso. */
     fun init(context: Context) {
         if (contextStore == null) contextStore = SharedPreferencesContextStore(context)
         if (toggleStore == null) toggleStore = SharedPreferencesSoundToggleStore(context)
+        if (sessionStore == null) sessionStore = FileSessionStore(File(context.applicationContext.filesDir, "sessions.json"))
     }
 
     /**
@@ -90,6 +100,33 @@ object SoundAlertRuntime {
                 alerts = alertManager(context),
             ).also { contextualClassifier = it }
         }
+
+    // ---------- Sesiones (pantalla "Reloj de sesiones") ----------
+
+    /** Sesiones guardadas en el reloj; se restauran al arrancar el proceso. */
+    val sessionTracker: SessionTracker by lazy {
+        SessionTracker(store = checkNotNull(sessionStore) { "SoundAlertRuntime.init() no se ha llamado (SoundAlertApp)" })
+    }
+
+    @Volatile private var sessionsStarted = false
+
+    /**
+     * Empieza a agrupar en sesiones (idempotente). Lo llama SoundAlertApp: escucha,
+     * contexto y alertas son estado del proceso, igual que el tracker.
+     */
+    fun startSessions(context: Context) {
+        synchronized(this) {
+            if (sessionsStarted) return
+            sessionsStarted = true
+        }
+        val alerts = alertManager(context.applicationContext).alerts
+        val listening = PipelineStatus.snapshot.map { it.phase == PipelineStatus.Phase.LISTENING || it.phase == PipelineStatus.Phase.SILENCED }.distinctUntilChanged()
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            combine(listening, contextManager.context, alerts, ::Triple).collect { (isListening, current, list) ->
+                sessionTracker.update(isListening, current, list)
+            }
+        }
+    }
 
     // ---------- Backend (Railway → Supabase): secundario a la detección local ----------
 
