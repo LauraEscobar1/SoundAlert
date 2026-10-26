@@ -18,6 +18,9 @@ import com.soundalert.wear.context.ContextualClassifier
 import com.soundalert.wear.context.DetectionHistory
 import com.soundalert.wear.history.HistoryRepository
 import com.soundalert.wear.rules.RuleEngine
+import com.soundalert.wear.rules.SharedPreferencesSoundToggleStore
+import com.soundalert.wear.rules.SoundToggleStore
+import com.soundalert.wear.rules.SoundToggles
 import com.soundalert.wear.sync.BackendSync
 import com.soundalert.wear.sync.DeviceRegistration
 import com.soundalert.wear.sync.FileSyncStore
@@ -35,10 +38,12 @@ import java.io.File
  */
 object SoundAlertRuntime {
     @Volatile private var contextStore: ContextStore? = null
+    @Volatile private var toggleStore: SoundToggleStore? = null
 
     /** Lo llama SoundAlertApp al arrancar el proceso. */
     fun init(context: Context) {
         if (contextStore == null) contextStore = SharedPreferencesContextStore(context)
+        if (toggleStore == null) toggleStore = SharedPreferencesSoundToggleStore(context)
     }
 
     /**
@@ -52,8 +57,13 @@ object SoundAlertRuntime {
     /** Todas las detecciones con su contexto (alerten o no). */
     val detectionHistory = DetectionHistory()
 
-    /** Reglas fijas del reloj: las usa el pipeline y las muestra la pantalla de sonidos. */
-    val ruleEngine = RuleEngine()
+    /** Sonidos que el usuario apagó en cada contexto (pantalla de sonidos). Se restauran al arrancar. */
+    val soundToggles: SoundToggles by lazy {
+        SoundToggles(store = checkNotNull(toggleStore) { "SoundAlertRuntime.init() no se ha llamado (SoundAlertApp)" })
+    }
+
+    /** Reglas del reloj (tabla fija + sonidos apagados): las usa el pipeline y las muestra la pantalla de sonidos. */
+    val ruleEngine: RuleEngine by lazy { RuleEngine(toggles = soundToggles) }
 
     /** Tiempos de las alertas: los aplica el AlertManager y los dibuja la pantalla de alerta. */
     val alertConfig = AlertConfig()
