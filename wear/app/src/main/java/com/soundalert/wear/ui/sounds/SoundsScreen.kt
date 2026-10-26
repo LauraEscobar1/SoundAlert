@@ -98,6 +98,7 @@ import com.soundalert.wear.ui.theme.SaText
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.asin
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -300,6 +301,18 @@ private fun BoxScope.WheelItem(cell: SoundCell, slot: WheelSlot, isCurrent: Bool
     } else {
         Modifier
     }
+    // Fondo opaco del color de la pantalla bajo el vidrio: la curva no se transparenta a
+    // través del círculo. Va fuera de la capa atenuada, así tapa también en los vecinos.
+    Canvas(
+        Modifier
+            .centerAt(slot.y.mdp, x = (slot.x - 96f).mdp)
+            .size(size.mdp)
+            .graphicsLayer {
+                alpha = (slot.alpha * 2f).coerceAtMost(1f)
+                scaleX = bounce.value
+                scaleY = bounce.value
+            },
+    ) { drawCircle(SaColors.Background) }
     Box(
         Modifier
             .centerAt(slot.y.mdp, x = (slot.x - 96f).mdp)
@@ -484,9 +497,9 @@ private fun WheelSwitch(cell: SoundCell, onToggle: () -> Unit, scale: WatchScale
 
 /** La curva de la rueda: arco punteado de ±47° (de casi el borde superior al inferior), vino al 18 %. */
 private fun DrawScope.drawWheelCurve(unit: Float) {
-    val steps = 46
+    val steps = 32
     for (k in 0..steps) {
-        val angle = -47f + 94f * k / steps
+        val angle = -CURVE_DEG + 2f * CURVE_DEG * k / steps
         val (x, y) = wheelPoint(angle)
         drawCircle(SaColors.Wine.copy(alpha = 0.18f), radius = 0.75f * unit, center = Offset(x * unit, y * unit))
     }
@@ -540,6 +553,14 @@ internal const val SMALL = 25f
 
 /** Encabezado y columna de información (sobre 192). */
 private const val HEADER_Y = 21f
+
+/**
+ * La curva va de y≈30 (6 por debajo del texto del encabezado, que acaba en y≈24) a su
+ * simétrico, y≈162, dentro de la zona segura: ±35° sobre la circunferencia de la rueda.
+ * Así nunca cruza el encabezado ni la columna de información (llega como mucho a x≈92).
+ */
+internal const val CURVE_TOP = 30f
+internal val CURVE_DEG = Math.toDegrees(asin((WHEEL_CY - CURVE_TOP) / WHEEL_R).toDouble()).toFloat()
 private const val INFO_X = 105.4f
 private const val INFO_WIDTH = 64f
 

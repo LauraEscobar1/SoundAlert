@@ -48,6 +48,20 @@ class WheelTest {
     }
 
     @Test
+    fun `la curva empieza bajo el encabezado, acaba en la zona segura y no llega a la columna de informacion`() {
+        // El texto del encabezado acaba en y≈24; la curva empieza 6 más abajo.
+        assertEquals(CURVE_TOP, wheelPoint(-CURVE_DEG).second, 0.01f)
+        assertEquals(192f - CURVE_TOP, wheelPoint(CURVE_DEG).second, 0.01f)
+        var angle = -CURVE_DEG
+        while (angle <= CURVE_DEG) {
+            val (x, y) = wheelPoint(angle)
+            assertTrue("dentro de la zona segura en $angle°", hypot(x - 96f, y - 96f) <= 96f - 12f)
+            assertTrue("lejos de la columna de información en $angle°", x < 100f)
+            angle += 1f
+        }
+    }
+
+    @Test
     fun `la rueda encaja en el sonido mas cercano y la inercia la empuja`() {
         assertEquals(2, wheelTarget(position = 2.2f, velocity = 0f, count = 10))
         assertEquals(3, wheelTarget(position = 2.6f, velocity = 0f, count = 10))
