@@ -54,10 +54,8 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.vectorResource
-import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -260,37 +258,6 @@ class ToastState {
 
 @Composable
 fun rememberToastState() = remember { ToastState() }
-
-/** Toast de vidrio (59 × 13 en el mockup) con texto en tinta. Se anuncia a los lectores de pantalla. */
-@Composable
-fun GlassToast(state: ToastState, scale: WatchScale, modifier: Modifier = Modifier) = with(scale) {
-    LaunchedEffect(state.serial) {
-        if (state.message != null) {
-            delay(TOAST_MS)
-            state.hide()
-        }
-    }
-    val message = state.message ?: return@with
-    // Vidrio sobre una base opaca: lo que hay debajo no se transparenta en el texto.
-    val shape = RoundedCornerShape(50)
-    Box(
-        modifier
-            .clip(shape)
-            .background(SaColors.Background)
-            .glass(shape)
-            .semantics { liveRegion = LiveRegionMode.Polite }
-            .padding(horizontal = 6.5.mdp, vertical = 3.mdp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(message, style = SaText.row.copy(fontSize = 6.3.sp), color = SaColors.Wine, maxLines = 1)
-            if (state.check) {
-                Spacer(Modifier.width(3.mdp))
-                GlyphIcon(R.drawable.ic_check, glyphHeight = 3.3.mdp, tint = SaColors.Wine, contentDescription = "Hecho")
-            }
-        }
-    }
-}
 
 const val TOAST_MS = 1_500L
 

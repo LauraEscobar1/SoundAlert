@@ -1,5 +1,16 @@
 package com.soundalert.wear.ui.sounds
 
+import kotlinx.coroutines.delay
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.shape.RoundedCornerShape
 import kotlin.math.roundToInt
 import androidx.wear.compose.foundation.rotary.rotaryScrollable
@@ -64,7 +75,8 @@ import com.soundalert.wear.context.SoundAlertContext
 import com.soundalert.wear.ui.SoundUi
 import com.soundalert.wear.ui.color
 import com.soundalert.wear.ui.components.FitText
-import com.soundalert.wear.ui.components.GlassToast
+import com.soundalert.wear.ui.components.TOAST_MS
+import com.soundalert.wear.ui.components.glass
 import com.soundalert.wear.ui.components.GlyphIcon
 import com.soundalert.wear.ui.components.ToastState
 import com.soundalert.wear.ui.components.WatchScale
@@ -148,6 +160,17 @@ fun SoundsContent(
             Box(
                 Modifier
                     .fillMaxSize()
+                    // Las celdas no pasan por encima del encabezado: por debajo de él se
+                    // desvanecen en 12 dp y por encima no se dibujan.
+                    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                    .drawWithContent {
+                        drawContent()
+                        val top = CELLS_TOP * unit
+                        drawRect(
+                            Brush.verticalGradient(0f to Color.Transparent, top / size.height to Color.Transparent, (top + 12f * unit) / size.height to Color.Black, 1f to Color.Black),
+                            blendMode = BlendMode.DstIn,
+                        )
+                    }
                     .scrollable(scrollState, Orientation.Vertical)
                     .rotaryScrollable(RotaryScrollableDefaults.behavior(scrollState), focusRequester)
                     // Cada toque va a la celda de centro más cercano: cada una recibe toda su
@@ -158,7 +181,8 @@ fun SoundsContent(
                             if (nearest != null) {
                                 val (cellScale, alpha) = lens(nearest)
                                 val distance = (Offset(size.width / 2f + slots[nearest].x * unit, centerY(nearest)) - tap).getDistance()
-                                if (alpha > 0.3f && distance <= HEX_RADIUS * unit * cellScale) onToggle(cells[nearest])
+                                val visible = alpha > 0.3f && centerY(nearest) > (CELLS_TOP + 10f) * unit
+                                if (visible && distance <= HEX_RADIUS * unit * cellScale) onToggle(cells[nearest])
                             }
                         }
                     },
@@ -181,26 +205,48 @@ fun SoundsContent(
                 }
             }
 
-            // Encabezado fijo (centro en y≈26,6): icono y nombre del contexto + "5 DE 7". Abre el contexto.
-            val open = if (onOpenContext != null) Modifier.clickable(onClickLabel = "Cambiar contexto", role = Role.Button, onClick = onOpenContext) else Modifier
-            Row(
-                Modifier
-                    .centerAt(26.6.mdp)
-                    .clip(RoundedCornerShape(50))
-                    .background(SaColors.Background)
-                    .then(open)
-                    .semantics(mergeDescendants = true) {}
-                    .padding(horizontal = 4.mdp, vertical = 1.mdp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                GlyphIcon(context.icon, glyphHeight = 7.1.mdp, tint = SaColors.Wine, contentDescription = "Contexto")
-                Spacer(Modifier.width(3.6.mdp))
-                Text(context.label, style = SaText.screenTitle, color = SaColors.Wine, maxLines = 1)
-                Spacer(Modifier.width(3.6.mdp))
-                Text("${cells.count { it.enabled }} DE ${cells.size}", style = SaText.tag, color = SaColors.Wine, maxLines = 1)
+            // Encabezado fijo (centro en y = 38): icono y nombre del contexto, que abre el
+            // contexto. Al activar o desactivar un sonido, durante 1,5 s se funde con la
+            // confirmación (en vidrio) y luego vuelve: el mensaje nunca tapa el panal.
+            LaunchedEffect(toast.serial) {
+                if (toast.message != null) {
+                    delay(TOAST_MS)
+                    toast.hide()
+                }
             }
-
-            GlassToast(toast, scale, Modifier.centerAt(163.mdp))
+            Crossfade(toast.message, animationSpec = tween(250), label = "encabezado", modifier = Modifier.centerAt(HEADER_Y.mdp)) { message ->
+                if (message != null) {
+                    Row(
+                        Modifier
+                            .height(12.mdp)
+                            .glass()
+                            .semantics { liveRegion = LiveRegionMode.Polite }
+                            .padding(horizontal = 6.mdp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        FitText(message, SaText.row.copy(fontSize = 6.sp), SaColors.Wine, Modifier.widthIn(max = 72.mdp))
+                        if (toast.check) {
+                            Spacer(Modifier.width(2.5.mdp))
+                            GlyphIcon(R.drawable.ic_check, glyphHeight = 3.3.mdp, tint = SaColors.Wine, contentDescription = "Hecho")
+                        }
+                    }
+                } else {
+                    val open = if (onOpenContext != null) Modifier.clickable(onClickLabel = "Cambiar contexto", role = Role.Button, onClick = onOpenContext) else Modifier
+                    Row(
+                        Modifier
+                            .height(12.mdp)
+                            .clip(RoundedCornerShape(50))
+                            .then(open)
+                            .semantics(mergeDescendants = true) {}
+                            .padding(horizontal = 4.mdp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        GlyphIcon(context.icon, glyphHeight = 7.1.mdp, tint = SaColors.Wine, contentDescription = "Contexto")
+                        Spacer(Modifier.width(3.6.mdp))
+                        Text(context.label, style = SaText.screenTitle, color = SaColors.Wine, maxLines = 1)
+                    }
+                }
+            }
         }
     }
 }
@@ -217,14 +263,20 @@ internal fun fisheye(y: Float): Pair<Float, Float> {
     return (1f - 0.55f * eased) to (1f - eased)
 }
 
-/** Centro del ojo de pez, franja a tamaño completo y distancia a la que la celda desaparece. */
-private const val LENS_CENTER_Y = 100f
+/** Centro del ojo de pez (el del área de celdas, bajo el encabezado), franja a tamaño completo y distancia a la que la celda desaparece. */
+private const val LENS_CENTER_Y = 108f
 private const val LENS_FLAT = 26f
-private const val LENS_EDGE = 78f
+private const val LENS_EDGE = 70f
 
-/** Altura de la primera fila sin desplazar y hasta dónde puede subir la última (sobre 192). */
-private const val FIRST_ROW_Y = 60f
-private const val LAST_ROW_Y = 140f
+/**
+ * Sobre 192: el encabezado (12 de alto) se centra en y = 38, dentro del margen de
+ * seguridad aunque muestre el mensaje más largo; las celdas solo se ven por debajo de
+ * y = 45. La primera fila empieza en y = 70 y la última puede subir hasta y = 148.
+ */
+private const val HEADER_Y = 38f
+private const val CELLS_TOP = 45f
+private const val FIRST_ROW_Y = 70f
+private const val LAST_ROW_Y = 148f
 
 /**
  * Celda hexagonal con la punta arriba. Encendida: vidrio con borde blanco al 45 % y

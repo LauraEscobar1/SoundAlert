@@ -2,6 +2,7 @@ package com.soundalert.wear.ui
 
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertWidthIsAtLeast
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
@@ -27,6 +28,7 @@ import com.soundalert.wear.rules.Priority
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -95,9 +97,9 @@ class WearAppUiTest {
         assertEquals(SoundAlertContext.CALLE, SoundAlertRuntime.contextManager.current)
         assertEquals(0, compose.onAllNodes(hasText("Universidad")).fetchSemanticsNodes().size)
 
-        // G · Sonidos: su encabezado (contexto + contador) también abre el contexto.
+        // G · Sonidos: su encabezado (icono y nombre del contexto, sin contador) también abre el contexto.
         compose.onRoot().performTouchInput { swipeLeft() }
-        compose.waitUntil(3_000) { compose.onAllNodes(hasText(" DE ", substring = true) and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(3_000) { compose.onAllNodes(hasText("Calle") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(hasContentDescription("Sirena, peligro")).assertExists()
 
         // H: la página siguiente.
@@ -114,6 +116,10 @@ class WearAppUiTest {
         compose.waitUntil(3_000) { compose.onAllNodes(hasContentDescription("Bebé, aviso")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(hasContentDescription("Bebé, aviso")).performClick()
         compose.waitUntil(3_000) { compose.onAllNodes(hasText("Bebé desactivado")).fetchSemanticsNodes().isNotEmpty() }
+        // La confirmación ocupa el lugar del encabezado: termina por encima de donde empiezan las celdas.
+        val message = compose.onNode(hasText("Bebé desactivado")).getBoundsInRoot()
+        val screen = compose.onRoot().getBoundsInRoot()
+        assertTrue("mensaje en ${message.bottom}", message.bottom <= screen.top + (screen.bottom - screen.top) * 45f / 192f)
         assertNull(SoundAlertRuntime.ruleEngine.match(SoundCategory.BABY_CRYING, SoundAlertContext.CASA))
         assertEquals(Priority.INFORMATION, SoundAlertRuntime.ruleEngine.match(SoundCategory.BABY_CRYING, SoundAlertContext.OTRO)?.priority)
 

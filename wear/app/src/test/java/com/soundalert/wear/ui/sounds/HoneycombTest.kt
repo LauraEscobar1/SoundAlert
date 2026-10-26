@@ -47,13 +47,13 @@ class HoneycombTest {
     }
 
     @Test
-    fun `ojo de pez - tamano completo en el centro, pequeno y transparente en los bordes`() {
-        assertEquals(1f to 1f, fisheye(100f))
-        assertEquals(1f to 1f, fisheye(120f))
+    fun `ojo de pez - tamano completo en el centro del area de celdas, pequeno y transparente en los bordes`() {
+        assertEquals(1f to 1f, fisheye(108f))
+        assertEquals(1f to 1f, fisheye(130f))
         val (edgeScale, edgeAlpha) = fisheye(178f)
         assertEquals(0.45f, edgeScale, 0.01f)
         assertEquals(0f, edgeAlpha, 0.01f)
-        val (midScale, midAlpha) = fisheye(52f)
+        val (midScale, midAlpha) = fisheye(60f)
         assertTrue(midScale in 0.45f..1f && midAlpha in 0f..1f)
     }
 }
