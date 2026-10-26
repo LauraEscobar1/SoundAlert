@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -35,11 +36,16 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -55,7 +61,8 @@ import com.soundalert.wear.ui.SoundUi
 import com.soundalert.wear.ui.color
 import com.soundalert.wear.ui.components.FitText
 import com.soundalert.wear.ui.components.GlyphIcon
-import com.soundalert.wear.ui.components.PriorityHeader
+import com.soundalert.wear.ui.components.PriorityBars
+import com.soundalert.wear.ui.components.centerAt
 import com.soundalert.wear.ui.components.WatchScale
 import com.soundalert.wear.ui.components.WatchScreen
 import com.soundalert.wear.ui.icon
@@ -110,145 +117,174 @@ fun AlertContent(alert: Alert, stillSounding: Boolean, nowMs: Long, timeoutMs: L
     }
     val touch = if (alert.priority == Priority.DANGER) semantics.blockTouches() else semantics.tapToAcknowledge(onAcknowledge)
     val remaining = remainingFraction(alert, timeoutMs)
+    val layout = AlertLayout.of(alert.priority)
     WatchScreen(touch, background = alert.priority.color) { scale ->
         with(scale) {
-            // Borde: anillo negro completo (peligro) o cuenta atrás (atención y aviso).
+            // Borde: anillo negro completo y otro punteado (peligro) o cuenta atrás (atención y aviso).
             Canvas(Modifier.fillMaxSize()) {
-                val stroke = 4.5.mdp.toPx()
-                val radius = size.minDimension / 2 - stroke / 2
+                val u = size.minDimension / 192f
                 if (remaining == null) {
-                    drawCircle(SaColors.Ink, radius = radius, style = Stroke(stroke))
+                    drawCircle(SaColors.Ink, radius = 91.3f * u, style = Stroke(2.9f * u))
+                    drawCircle(
+                        SaColors.Ink.copy(alpha = 0.3f),
+                        radius = 85.3f * u,
+                        style = Stroke(0.8f * u, pathEffect = PathEffect.dashPathEffect(floatArrayOf(2.4f * u, 2.4f * u))),
+                    )
                 } else {
-                    drawCircle(SaColors.Ink.copy(alpha = 0.18f), radius = radius, style = Stroke(stroke))
+                    val r = 91.6f * u
+                    drawCircle(SaColors.Ink.copy(alpha = 0.15f), radius = r, style = Stroke(3.2f * u))
                     drawArc(
                         SaColors.Ink,
                         startAngle = -90f,
                         sweepAngle = 360f * remaining.value,
                         useCenter = false,
-                        topLeft = Offset(center.x - radius, center.y - radius),
-                        size = Size(radius * 2, radius * 2),
-                        style = Stroke(stroke, cap = StrokeCap.Round),
+                        topLeft = Offset(center.x - r, center.y - r),
+                        size = Size(r * 2, r * 2),
+                        style = Stroke(3.2f * u, cap = StrokeCap.Round),
                     )
                 }
             }
-            // Medidas sobre 192: barras en y≈15, disco de 46 en el hueco, titular de dos
-            // líneas de 19 sp, subtítulo, chip y, abajo, botón (peligro) o barra (resto).
-            Column(
-                Modifier.fillMaxSize().padding(top = 15.mdp, bottom = if (alert.priority == Priority.DANGER) 12.mdp else 22.mdp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                PriorityHeader(alert.priority, scale)
-                IconDisc(alert, scale)
-                FitText(SoundUi.alertTitle(alert.category).uppercase(), SaText.alertTitle, SaColors.Ink, Modifier.width(136.mdp), maxLines = 2)
-                Spacer(Modifier.height(2.mdp))
-                Subtitle(alert, nowMs, scale)
-                if (stillSounding) {
-                    Spacer(Modifier.height(3.mdp))
-                    InkChip("SIGUE SONANDO", scale)
-                }
-                if (remaining == null) {
-                    Spacer(Modifier.height(4.mdp))
-                    AcknowledgeButton(onAcknowledge, scale)
-                } else {
-                    Spacer(Modifier.height(5.mdp))
-                    // Barra de 48 × 2,3 sincronizada con el anillo.
-                    Box(
-                        Modifier.size(width = 48.mdp, height = 2.3.mdp).drawBehind {
-                            val r = CornerRadius(size.height / 2)
-                            drawRoundRect(SaColors.Ink.copy(alpha = 0.18f), cornerRadius = r)
-                            drawRoundRect(SaColors.Ink, size = Size(size.width * remaining.value, size.height), cornerRadius = r)
-                        },
-                    )
-                }
+            // Posiciones (centro vertical, sobre 192) medidas en el mockup.
+            PriorityBars(alert.priority, scale, Modifier.centerAt(19.5.mdp))
+            Text(alert.priority.label, style = SaText.label, color = SaColors.Ink, maxLines = 1, modifier = Modifier.centerAt(27.6.mdp))
+            IconDisc(alert, layout, scale)
+            AlertTitle(alert, layout, scale)
+            Subtitle(alert, nowMs, stillSounding, scale, Modifier.centerAt(layout.rowY.mdp))
+            if (remaining == null) {
+                AcknowledgeButton(onAcknowledge, scale, Modifier.centerAt(145.2.mdp))
+            } else {
+                // Barra de 41 × 2,6 sincronizada con el anillo.
+                Box(
+                    Modifier.centerAt(layout.barY.mdp).size(width = 41.mdp, height = 2.6.mdp).drawBehind {
+                        val r = CornerRadius(size.height / 2)
+                        drawRoundRect(SaColors.Ink.copy(alpha = 0.18f), cornerRadius = r)
+                        drawRoundRect(SaColors.Ink, size = Size(size.width * remaining.value, size.height), cornerRadius = r)
+                    },
+                )
             }
+        }
+    }
+}
+
+/** Medidas de cada nivel en el mockup (centros verticales y disco, sobre 192). */
+private class AlertLayout(val discY: Float, val disc: Float, val titleY: Float, val titleOneLineY: Float, val rowY: Float, val barY: Float) {
+    companion object {
+        fun of(priority: Priority) = when (priority) {
+            Priority.DANGER -> AlertLayout(discY = 59.5f, disc = 42.8f, titleY = 100.9f, titleOneLineY = 101.5f, rowY = 124.4f, barY = 0f)
+            Priority.ATTENTION -> AlertLayout(discY = 59.5f, disc = 42.8f, titleY = 101.5f, titleOneLineY = 101.5f, rowY = 125f, barY = 140f)
+            Priority.INFORMATION -> AlertLayout(discY = 64.1f, disc = 40.2f, titleY = 101.5f, titleOneLineY = 107f, rowY = 123.9f, barY = 137.4f)
         }
     }
 }
 
 /**
  * Disco de tinta con el icono en el color del nivel. Peligro: 3 ondas a cada lado;
- * atención: 2; aviso: anillos de eco concéntricos. Encoge si los textos necesitan sitio.
+ * atención: 2; aviso: un anillo punteado y otro tenue alrededor (ecos).
  */
 @Composable
-private fun ColumnScope.IconDisc(alert: Alert, scale: WatchScale) = with(scale) {
-    BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-        val disc = minOf(46.mdp, maxHeight - 4.mdp).coerceAtLeast(20.mdp)
-        Canvas(Modifier.fillMaxSize()) {
-            val r = disc.toPx() / 2
-            when (alert.priority) {
-                Priority.INFORMATION -> drawEchoes(r, 6.mdp.toPx())
-                else -> drawWaves(r, waves = if (alert.priority == Priority.DANGER) 3 else 2, step = 5.5.mdp.toPx(), stroke = 1.8.mdp.toPx())
+private fun BoxScope.IconDisc(alert: Alert, layout: AlertLayout, scale: WatchScale) = with(scale) {
+    Canvas(Modifier.fillMaxSize()) {
+        val u = size.minDimension / 192f
+        val c = Offset(center.x, layout.discY * u)
+        val r = layout.disc / 2 * u
+        when (alert.priority) {
+            Priority.INFORMATION -> {
+                drawCircle(
+                    SaColors.Ink.copy(alpha = 0.3f),
+                    radius = 24.6f * u,
+                    center = c,
+                    style = Stroke(1.3f * u, pathEffect = PathEffect.dashPathEffect(floatArrayOf(2.6f * u, 1.8f * u))),
+                )
+                drawCircle(SaColors.Ink.copy(alpha = 0.15f), radius = 28.5f * u, center = c, style = Stroke(1.3f * u))
             }
+            else -> drawWaves(c, r, waves = if (alert.priority == Priority.DANGER) 3 else 2, u)
         }
-        Box(Modifier.size(disc).clip(CircleShape).background(SaColors.Ink), contentAlignment = Alignment.Center) {
-            GlyphIcon(
-                SoundUi.icon(alert.category),
-                glyphHeight = disc * 0.46f,
-                maxGlyphWidth = disc * 0.56f,
-                tint = alert.priority.color,
-                contentDescription = SoundUi.name(alert.category),
-            )
-        }
+    }
+    Box(
+        Modifier.centerAt(layout.discY.mdp).size(layout.disc.mdp).clip(CircleShape).background(SaColors.Ink),
+        contentAlignment = Alignment.Center,
+    ) {
+        GlyphIcon(
+            SoundUi.icon(alert.category),
+            glyphHeight = (layout.disc * 0.36f).mdp,
+            maxGlyphWidth = (layout.disc * 0.42f).mdp,
+            tint = alert.priority.color,
+            contentDescription = SoundUi.name(alert.category),
+        )
     }
 }
 
-/** Ondas de sonido ")))" a cada lado del disco. */
-private fun DrawScope.drawWaves(discRadius: Float, waves: Int, step: Float, stroke: Float) {
+/** Ondas ")))" a cada lado del disco: la primera en tinta y las siguientes más tenues. */
+private fun DrawScope.drawWaves(c: Offset, discRadius: Float, waves: Int, u: Float) {
     for (k in 1..waves) {
-        val r = discRadius + step * k
-        val topLeft = Offset(center.x - r, center.y - r)
-        val arcSize = Size(r * 2, r * 2)
-        val alpha = 1f - (k - 1) * 0.25f
-        for (start in listOf(-32f, 148f)) {
-            drawArc(SaColors.Ink.copy(alpha = alpha), start, 64f, useCenter = false, topLeft = topLeft, size = arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
+        val r = discRadius + (6.1f + (k - 1) * 6f) * u
+        val half = 17f + (k - 1) * 2.5f
+        val alpha = when (k) {
+            1 -> 1f
+            2 -> if (waves == 2) 0.45f else 0.5f
+            else -> 0.32f
+        }
+        val topLeft = Offset(c.x - r, c.y - r)
+        for (mid in listOf(0f, 180f)) {
+            drawArc(SaColors.Ink.copy(alpha = alpha), mid - half, half * 2, useCenter = false, topLeft = topLeft, size = Size(r * 2, r * 2), style = Stroke(1.8f * u, cap = StrokeCap.Round))
         }
     }
 }
 
-/** Anillos de eco alrededor de la campana. */
-private fun DrawScope.drawEchoes(discRadius: Float, step: Float) {
-    drawCircle(SaColors.Ink.copy(alpha = 0.55f), radius = discRadius + step, style = Stroke(step * 0.3f))
-    drawCircle(SaColors.Ink.copy(alpha = 0.25f), radius = discRadius + step * 2, style = Stroke(step * 0.25f))
-}
-
-/** "Casa · ahora" (peligro y atención); aviso: icono del contexto + "Casa · hace 2 s". */
+/** Titular en mayúsculas, como mucho en dos líneas. Con una sola línea va a su altura del mockup. */
 @Composable
-private fun Subtitle(alert: Alert, nowMs: Long, scale: WatchScale) = with(scale) {
-    if (alert.priority == Priority.INFORMATION) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            GlyphIcon(alert.context.icon, glyphHeight = 7.mdp, tint = SaColors.Ink)
-            Spacer(Modifier.width(3.mdp))
-            FitText("${alert.context.label} · ${relativeTimeSeconds(alert.createdAtMs, nowMs)}", SaText.body, SaColors.Ink, Modifier.widthIn(max = 100.mdp))
+private fun AlertTitle(alert: Alert, layout: AlertLayout, scale: WatchScale) = with(scale) {
+    val text = SoundUi.alertTitle(alert.category).uppercase()
+    val width = 104.mdp
+    val measurer = rememberTextMeasurer()
+    val lines = with(LocalDensity.current) {
+        measurer.measure(text, SaText.alertTitle, maxLines = 2, constraints = Constraints(maxWidth = width.roundToPx())).lineCount
+    }
+    FitText(text, SaText.alertTitle, SaColors.Ink, Modifier.centerAt((if (lines > 1) layout.titleY else layout.titleOneLineY).mdp).width(width), maxLines = 2)
+}
+
+/**
+ * "Casa · ahora" con el chip negro "SIGUE SONANDO" mientras el sonido continúa; aviso:
+ * icono del contexto + "Casa · hace 2 s".
+ */
+@Composable
+private fun Subtitle(alert: Alert, nowMs: Long, stillSounding: Boolean, scale: WatchScale, modifier: Modifier) = with(scale) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        val text = if (alert.priority == Priority.INFORMATION) {
+            GlyphIcon(alert.context.icon, glyphHeight = 4.6.mdp, tint = SaColors.Ink)
+            Spacer(Modifier.width(2.6.mdp))
+            "${alert.context.label} · ${relativeTimeSeconds(alert.createdAtMs, nowMs)}"
+        } else {
+            "${alert.context.label} · ${relativeTime(alert.createdAtMs, nowMs)}"
         }
-    } else {
-        FitText("${alert.context.label} · ${relativeTime(alert.createdAtMs, nowMs)}", SaText.body, SaColors.Ink, Modifier.width(110.mdp))
+        FitText(text, SaText.body, SaColors.Ink, Modifier.widthIn(max = 92.mdp))
+        if (stillSounding) {
+            Spacer(Modifier.width(4.2.mdp))
+            InkChip("SIGUE SONANDO", scale)
+        }
     }
 }
 
-/** Chip negro con texto durazno ("SIGUE SONANDO"). */
+/** Chip negro con texto blanco ("SIGUE SONANDO"), 9 de alto. */
 @Composable
 private fun InkChip(text: String, scale: WatchScale) = with(scale) {
-    Text(
-        text,
-        style = SaText.labelSmall,
-        color = SaColors.Peach,
-        maxLines = 1,
-        modifier = Modifier.clip(RoundedCornerShape(50)).background(SaColors.Ink).padding(horizontal = 5.mdp, vertical = 2.mdp),
-    )
+    Box(Modifier.height(9.1.mdp).clip(RoundedCornerShape(50)).background(SaColors.Ink).padding(horizontal = 4.4.mdp), contentAlignment = Alignment.Center) {
+        Text(text, style = SaText.chip, color = Color.White, maxLines = 1)
+    }
 }
 
-/** Botón negro "Entendido": 86 × 28 visibles; Compose amplía la zona táctil a 48 dp. */
+/** Botón negro "Entendido" de 64 × 19,5 visibles; Compose amplía la zona táctil a 48 dp. */
 @Composable
-private fun AcknowledgeButton(onAcknowledge: () -> Unit, scale: WatchScale) = with(scale) {
+private fun AcknowledgeButton(onAcknowledge: () -> Unit, scale: WatchScale, modifier: Modifier) = with(scale) {
     Box(
-        Modifier
-            .size(width = 86.mdp, height = 28.mdp)
+        modifier
+            .size(width = 63.6.mdp, height = 19.5.mdp)
             .clip(RoundedCornerShape(50))
             .background(SaColors.Ink)
             .clickable(role = Role.Button, onClick = onAcknowledge),
         contentAlignment = Alignment.Center,
     ) {
-        Text("Entendido", style = SaText.button, color = SaColors.Peach, maxLines = 1)
+        Text("Entendido", style = SaText.button, color = Color.White, maxLines = 1)
     }
 }
 

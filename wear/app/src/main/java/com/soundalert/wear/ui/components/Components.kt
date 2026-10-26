@@ -49,6 +49,7 @@ import androidx.compose.ui.graphics.vector.VectorGroup
 import androidx.compose.ui.graphics.vector.VectorPath
 import androidx.compose.ui.graphics.vector.toPath
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.vectorResource
@@ -65,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.Text
+import com.soundalert.wear.R
 import com.soundalert.wear.context.SoundAlertContext
 import com.soundalert.wear.rules.Priority
 import com.soundalert.wear.ui.bars
@@ -110,42 +112,39 @@ fun Clock(modifier: Modifier = Modifier, style: TextStyle = SaText.clock, color:
 }
 
 /**
- * Barras de nivel + etiqueta ("▬▬▬ PELIGRO") sobre el color de la alerta. El número
- * de barras encendidas es el de vibraciones (3 / 2 / 1).
+ * Barras de nivel de las alertas: 3 de 8,4 × 2,6 con 2 de separación; las encendidas
+ * (tantas como vibraciones: 3 / 2 / 1) en tinta y el resto en tinta al 18 %.
  */
 @Composable
-fun PriorityHeader(priority: Priority, scale: WatchScale, modifier: Modifier = Modifier) = with(scale) {
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(horizontalArrangement = Arrangement.spacedBy(2.7.mdp)) {
-            repeat(3) { index ->
-                Box(
-                    Modifier.size(width = 10.mdp, height = 4.1.mdp)
-                        .clip(RoundedCornerShape(50))
-                        .background(if (index < priority.bars) SaColors.Ink else SaColors.Ink.copy(alpha = 0.22f)),
-                )
-            }
+fun PriorityBars(priority: Priority, scale: WatchScale, modifier: Modifier = Modifier) = with(scale) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(2.mdp)) {
+        repeat(3) { index ->
+            Box(
+                Modifier.size(width = 8.4.mdp, height = 2.6.mdp)
+                    .clip(RoundedCornerShape(50))
+                    .background(if (index < priority.bars) SaColors.Ink else SaColors.Ink.copy(alpha = 0.18f)),
+            )
         }
-        Spacer(Modifier.height(3.3.mdp))
-        Text(priority.label, style = SaText.label, color = SaColors.Ink, maxLines = 1)
     }
 }
 
-/** Chip de vidrio del contexto activo ("⌂ CASA"). Al tocarlo se abre la pantalla de contexto. */
+/** Chip del contexto activo ("⌂ CASA"): 32 × 9, café al 10 %. Al tocarlo se abre la pantalla de contexto. */
 @Composable
 fun ContextChip(context: SoundAlertContext, onClick: (() -> Unit)?, scale: WatchScale, modifier: Modifier = Modifier) = with(scale) {
     val clickable = if (onClick != null) Modifier.clickable(onClickLabel = "Cambiar contexto", role = Role.Button, onClick = onClick) else Modifier
     Row(
         modifier = modifier
-            .height(16.3.mdp)
-            .glass()
+            .height(8.8.mdp)
+            .clip(RoundedCornerShape(50))
+            .background(SaColors.BrownFaint)
             .then(clickable)
             .semantics { contentDescription = "Contexto: ${context.label}" }
-            .padding(start = 5.9.mdp, end = 6.3.mdp),
+            .padding(start = 6.mdp, end = 5.8.mdp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        GlyphIcon(context.icon, glyphHeight = 7.2.mdp, tint = SaColors.Ink)
-        Spacer(Modifier.width(5.mdp))
-        Text(context.label.uppercase(), style = SaText.labelSmall, color = SaColors.Ink, maxLines = 1)
+        GlyphIcon(context.icon, glyphHeight = 3.4.mdp, tint = SaColors.Brown)
+        Spacer(Modifier.width(2.6.mdp))
+        Text(context.label.uppercase(), style = SaText.labelSmall, color = SaColors.Brown, maxLines = 1)
     }
 }
 
@@ -183,16 +182,42 @@ fun Modifier.rotarySteps(active: Boolean = true, onStep: (Int) -> Unit): Modifie
 
 private val ROTARY_STEP = 36.dp
 
+/**
+ * Coloca el elemento centrado en horizontal y con su centro a [y] del borde superior
+ * de la pantalla (medidas del mockup). Va primero en la cadena de modificadores, dentro
+ * de un Box que ocupa la pantalla.
+ */
+fun Modifier.centerAt(y: Dp, x: Dp = 0.dp): Modifier = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints.copy(minWidth = 0, minHeight = 0))
+    layout(constraints.maxWidth, constraints.maxHeight) {
+        placeable.place((constraints.maxWidth - placeable.width) / 2 + x.roundToPx(), y.roundToPx() - placeable.height / 2)
+    }
+}
+
+/** Puntitos de página: el actual en tinta, el resto en café al 35 %. */
+@Composable
+fun PageDots(count: Int, current: Int, scale: WatchScale, modifier: Modifier = Modifier) = with(scale) {
+    Row(modifier.semantics { contentDescription = "Página ${current + 1} de $count" }, horizontalArrangement = Arrangement.spacedBy(2.6.mdp)) {
+        repeat(count) { i ->
+            Box(Modifier.size(2.8.mdp).clip(CircleShape).background(if (i == current) SaColors.Ink else SaColors.Brown.copy(alpha = 0.35f)))
+        }
+    }
+}
+
 /** Mensaje breve ("Perro activado ✓"): se muestra [TOAST_MS] y desaparece. */
 @Stable
 class ToastState {
     var message by mutableStateOf<String?>(null)
         private set
+    /** Con un check a la derecha ("Perro activado ✓"). */
+    var check by mutableStateOf(false)
+        private set
     internal var serial by mutableIntStateOf(0)
         private set
 
-    fun show(text: String) {
+    fun show(text: String, check: Boolean = false) {
         message = text
+        this.check = check
         serial++
     }
 
@@ -204,7 +229,7 @@ class ToastState {
 @Composable
 fun rememberToastState() = remember { ToastState() }
 
-/** Toast de vidrio con texto en tinta y negrita. Se anuncia a los lectores de pantalla. */
+/** Toast de vidrio (59 × 13 en el mockup) con texto en tinta. Se anuncia a los lectores de pantalla. */
 @Composable
 fun GlassToast(state: ToastState, scale: WatchScale, modifier: Modifier = Modifier) = with(scale) {
     LaunchedEffect(state.serial) {
@@ -222,10 +247,16 @@ fun GlassToast(state: ToastState, scale: WatchScale, modifier: Modifier = Modifi
             .background(SaColors.Peach)
             .glass(shape)
             .semantics { liveRegion = LiveRegionMode.Polite }
-            .padding(horizontal = 9.mdp, vertical = 5.mdp),
+            .padding(horizontal = 6.5.mdp, vertical = 3.mdp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(message, style = SaText.row.copy(fontSize = 9.sp), color = SaColors.Ink, maxLines = 1)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(message, style = SaText.row.copy(fontSize = 6.3.sp), color = SaColors.Ink, maxLines = 1)
+            if (state.check) {
+                Spacer(Modifier.width(3.mdp))
+                GlyphIcon(R.drawable.ic_check, glyphHeight = 3.3.mdp, tint = SaColors.Ink, contentDescription = "Hecho")
+            }
+        }
     }
 }
 
