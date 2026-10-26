@@ -1,10 +1,10 @@
 package com.soundalert.wear.ui
 
 import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -74,28 +74,29 @@ class WearAppUiTest {
         SoundAlertRuntime.alertManager(app).alerts.value.first { it.category == category }
 
     @Test
-    fun reposoMuestraContextoYNavegaAContextoSonidosYSesiones() {
-        compose.onNodeWithContentDescription("Contexto: Casa").assertExists()
-        // Sin el servicio de escucha arrancado (el test no usa el micrófono).
+    fun reposoNavegaASonidosContextoYSesiones() {
+        // Inicio: solo la hora, el emblema y el estado (sin el servicio de escucha arrancado).
         compose.onNodeWithText("En pausa").assertExists()
-        compose.onNodeWithText("Toca el núcleo para escuchar").assertExists()
+        assertEquals(0, compose.onAllNodes(hasText("Timbre", substring = true)).fetchSemanticsNodes().size)
 
-        // F · Contexto: solo CASA, CALLE y OTRO; elegir CALLE vuelve al reposo con el nuevo contexto.
-        compose.onNodeWithContentDescription("Contexto: Casa").performClick()
-        compose.onNodeWithText("Contexto").assertExists()
-        compose.onNodeWithText("MANUAL").assertExists()
+        // G · Sonidos: el encabezado (contexto + contador) abre F · Contexto.
+        compose.onRoot().performTouchInput { swipeLeft() }
+        compose.waitUntil(3_000) { compose.onAllNodes(hasText(" DE ", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasContentDescription("Sirena, peligro")).assertExists()
+        compose.onNode(hasText(" DE ", substring = true) and hasClickAction()).performClick()
+
+        // F · Contexto: solo CASA, CALLE y OTRO, sin la etiqueta MANUAL; elegir CALLE vuelve con el nuevo contexto.
+        compose.waitUntil(3_000) { compose.onAllNodes(hasText("Contexto")).fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(0, compose.onAllNodes(hasText("MANUAL")).fetchSemanticsNodes().size)
         compose.onNodeWithText("Otro").assertExists()
         // Zona táctil de cada fila: la fila visible (30 dp) más la separación (4 dp).
         listOf("Casa", "Calle", "Otro").forEach { compose.onNodeWithText(it).assertHeightIsAtLeast(34.dp) }
         compose.onNodeWithText("Calle").performClick()
-        compose.waitUntil(3_000) { compose.onAllNodes(hasContentDescription("Contexto: Calle")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(3_000) { compose.onAllNodes(hasText("Contexto")).fetchSemanticsNodes().isEmpty() }
         assertEquals(SoundAlertContext.CALLE, SoundAlertRuntime.contextManager.current)
         assertEquals(0, compose.onAllNodes(hasText("Universidad")).fetchSemanticsNodes().size)
 
-        // G y H: páginas a la derecha del reposo.
-        compose.onRoot().performTouchInput { swipeLeft() }
-        compose.waitUntil(3_000) { compose.onAllNodes(hasText("TOCA PARA ACTIVAR", substring = true)).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNode(hasContentDescription("Sirena, peligro")).assertExists()
+        // H: la página siguiente.
         compose.onRoot().performTouchInput { swipeLeft() }
         compose.waitUntil(3_000) {
             compose.onAllNodes(hasText("GIRA LA CORONA") or hasText("Sin sesiones")).fetchSemanticsNodes().isNotEmpty()

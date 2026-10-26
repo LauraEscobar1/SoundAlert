@@ -81,21 +81,18 @@ class SessionFlowUiTest {
         compose.waitUntil(15_000) { PipelineStatus.snapshot.value.phase == PipelineStatus.Phase.LISTENING }
         compose.waitUntil(5_000) { SoundAlertRuntime.sessionTracker.sessions.value.lastOrNull()?.let { it.ongoing && it.context == SoundAlertContext.CASA } == true }
 
-        // Tres niveles en casa y una bocina, que en casa no tiene regla (no alerta).
-        detectAndAcknowledge(SoundCategory.FIRE_ALARM)
-        Thread.sleep(50)
-        detectAndAcknowledge(SoundCategory.GLASS_BREAK)
-        Thread.sleep(50)
-        detectAndAcknowledge(SoundCategory.DOORBELL)
-        Thread.sleep(50)
-        detect(SoundCategory.CAR_HORN)
-
-        compose.waitUntil(5_000) { (SoundAlertRuntime.sessionTracker.sessions.value.last().events.size) >= 4 }
-        val events = SoundAlertRuntime.sessionTracker.sessions.value.last().events
-        assertEquals(
-            listOf(Priority.DANGER, Priority.ATTENTION, Priority.INFORMATION, null),
-            events.filter { it.category in setOf(SoundCategory.FIRE_ALARM, SoundCategory.GLASS_BREAK, SoundCategory.DOORBELL, SoundCategory.CAR_HORN) }.map { it.priority },
-        )
+        // Tres niveles en casa y una bocina, que en casa no tiene regla (no alerta). Categorías
+        // que ningún otro test usa: el AlertManager no repite una categoría antes de 10 s.
+        val start = System.currentTimeMillis()
+        val injected = listOf(SoundCategory.SMOKE_ALARM, SoundCategory.SCREAM, SoundCategory.DOOR_KNOCK, SoundCategory.CAR_HORN)
+        for (category in injected) {
+            detectAndAcknowledge(category)
+            Thread.sleep(50)
+        }
+        fun mine() = SoundAlertRuntime.sessionTracker.sessions.value.last().events.filter { it.atMs >= start && it.category in injected }
+        compose.waitUntil(5_000) { mine().size == 4 && mine().take(3).all { it.priority != null } }
+        val events = mine()
+        assertEquals(listOf(Priority.DANGER, Priority.ATTENTION, Priority.INFORMATION, null), events.map { it.priority })
 
         // Reloj de sesiones (tercera página): la sesión actual con un conteo por nivel.
         compose.onRoot().performTouchInput { swipeLeft() }
@@ -107,10 +104,16 @@ class SessionFlowUiTest {
         // Detalle: el primer sonido de la sesión con su hora local, y la corona pasa al siguiente.
         compose.onNode(hasText("GIRA LA CORONA", substring = true)).performClick()
         val is24 = DateFormat.is24HourFormat(app)
-        val fire = events.first { it.category == SoundCategory.FIRE_ALARM }
-        val glass = events.first { it.category == SoundCategory.GLASS_BREAK }
-        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Incendio · ${clockTime(fire.atMs, is24)}", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        // El detalle empieza en el primer sonido de la sesión: se avanza con la corona hasta los del test.
+        val smoke = events[0]
+        val scream = events[1]
+        val first = SoundAlertRuntime.sessionTracker.sessions.value.last().events.indexOf(smoke)
+        repeat(first) {
+            compose.onRoot().performRotaryScrollInput { rotateToScrollVertically(120f) }
+            compose.waitForIdle()
+        }
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Humo · ${clockTime(smoke.atMs, is24)}", substring = true)).fetchSemanticsNodes().isNotEmpty() }
         compose.onRoot().performRotaryScrollInput { rotateToScrollVertically(120f) }
-        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Vidrio roto · ${clockTime(glass.atMs, is24)}", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Grito · ${clockTime(scream.atMs, is24)}", substring = true)).fetchSemanticsNodes().isNotEmpty() }
     }
 }
