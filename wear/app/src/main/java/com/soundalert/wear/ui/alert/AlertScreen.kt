@@ -7,6 +7,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -45,12 +46,12 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.material3.Text
 import com.soundalert.wear.alert.Alert
@@ -144,35 +145,47 @@ fun AlertContent(alert: Alert, stillSounding: Boolean, nowMs: Long, timeoutMs: L
                     )
                 }
             }
-            // Posiciones (centro vertical, sobre 192) medidas en el mockup.
-            PriorityBars(alert.priority, scale, Modifier.centerAt(19.5.mdp))
-            Text(alert.priority.label, style = SaText.label, color = SaColors.Ink, maxLines = 1, modifier = Modifier.centerAt(27.6.mdp))
+            // Arriba, a su altura: barras, etiqueta y disco con sus ondas o ecos.
+            PriorityBars(alert.priority, scale, Modifier.centerAt(21.mdp))
+            Text(alert.priority.label, style = SaText.label, color = SaColors.Ink, maxLines = 1, modifier = Modifier.centerAt(29.5.mdp))
             IconDisc(alert, layout, scale)
-            AlertTitle(alert, layout, scale)
-            Subtitle(alert, nowMs, stillSounding, scale, Modifier.centerAt(layout.rowY.mdp))
-            if (remaining == null) {
-                AcknowledgeButton(onAcknowledge, scale, Modifier.centerAt(145.2.mdp))
-            } else {
-                // Barra de 41 × 2,6 sincronizada con el anillo.
-                Box(
-                    Modifier.centerAt(layout.barY.mdp).size(width = 41.mdp, height = 2.6.mdp).drawBehind {
-                        val r = CornerRadius(size.height / 2)
-                        drawRoundRect(SaColors.Ink.copy(alpha = 0.18f), cornerRadius = r)
-                        drawRoundRect(SaColors.Ink, size = Size(size.width * remaining.value, size.height), cornerRadius = r)
-                    },
-                )
+            // Debajo, cada cosa en su línea y centradas, repartidas en el alto que queda:
+            // titular, contexto y hora, chip "SIGUE SONANDO" y botón (peligro) o barrita.
+            Column(
+                Modifier.fillMaxSize().padding(top = layout.textTop.mdp, bottom = 23.mdp),
+                verticalArrangement = Arrangement.spacedBy(2.6.mdp, Alignment.CenterVertically),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                AlertTitle(alert, scale)
+                ContextLine(alert, nowMs, scale)
+                if (stillSounding) InkChip("SIGUE SONANDO", scale)
+                if (remaining == null) {
+                    AcknowledgeButton(onAcknowledge, scale, Modifier.padding(top = 1.mdp))
+                } else {
+                    // Barrita de 41 × 2,6 sincronizada con el anillo.
+                    Box(
+                        Modifier.padding(top = 2.mdp).size(width = 41.mdp, height = 2.6.mdp).drawBehind {
+                            val r = CornerRadius(size.height / 2)
+                            drawRoundRect(SaColors.Ink.copy(alpha = 0.18f), cornerRadius = r)
+                            drawRoundRect(SaColors.Ink, size = Size(size.width * remaining.value, size.height), cornerRadius = r)
+                        },
+                    )
+                }
             }
         }
     }
 }
 
-/** Medidas de cada nivel en el mockup (centros verticales y disco, sobre 192). */
-private class AlertLayout(val discY: Float, val disc: Float, val titleY: Float, val titleOneLineY: Float, val rowY: Float, val barY: Float) {
+/**
+ * Disco de cada nivel (sobre 192): un 30–35 % mayor que en el mockup y lo más grande que
+ * deja el resto sin salir del margen de seguridad. [textTop]: donde empieza el bloque de textos.
+ */
+private class AlertLayout(val discY: Float, val disc: Float, val textTop: Float) {
     companion object {
         fun of(priority: Priority) = when (priority) {
-            Priority.DANGER -> AlertLayout(discY = 59.5f, disc = 42.8f, titleY = 100.9f, titleOneLineY = 101.5f, rowY = 124.4f, barY = 0f)
-            Priority.ATTENTION -> AlertLayout(discY = 59.5f, disc = 42.8f, titleY = 101.5f, titleOneLineY = 101.5f, rowY = 125f, barY = 140f)
-            Priority.INFORMATION -> AlertLayout(discY = 64.1f, disc = 40.2f, titleY = 101.5f, titleOneLineY = 107f, rowY = 123.9f, barY = 137.4f)
+            Priority.DANGER -> AlertLayout(discY = 61.5f, disc = 56f, textTop = 92.5f)
+            Priority.ATTENTION -> AlertLayout(discY = 62.5f, disc = 58f, textTop = 95.5f)
+            Priority.INFORMATION -> AlertLayout(discY = 67f, disc = 52f, textTop = 102f)
         }
     }
 }
@@ -191,11 +204,11 @@ private fun BoxScope.IconDisc(alert: Alert, layout: AlertLayout, scale: WatchSca
             Priority.INFORMATION -> {
                 drawCircle(
                     SaColors.Ink.copy(alpha = 0.3f),
-                    radius = 24.6f * u,
+                    radius = r + 3.8f * u,
                     center = c,
                     style = Stroke(1.3f * u, pathEffect = PathEffect.dashPathEffect(floatArrayOf(2.6f * u, 1.8f * u))),
                 )
-                drawCircle(SaColors.Ink.copy(alpha = 0.15f), radius = 28.5f * u, center = c, style = Stroke(1.3f * u))
+                drawCircle(SaColors.Ink.copy(alpha = 0.15f), radius = r + 7f * u, center = c, style = Stroke(1.3f * u))
             }
             else -> drawWaves(c, r, waves = if (alert.priority == Priority.DANGER) 3 else 2, u)
         }
@@ -231,37 +244,33 @@ private fun DrawScope.drawWaves(c: Offset, discRadius: Float, waves: Int, u: Flo
     }
 }
 
-/** Titular en mayúsculas, como mucho en dos líneas. Con una sola línea va a su altura del mockup. */
+/** Titular en mayúsculas: más grande si cabe en una línea; si no, en dos. */
 @Composable
-private fun AlertTitle(alert: Alert, layout: AlertLayout, scale: WatchScale) = with(scale) {
+private fun AlertTitle(alert: Alert, scale: WatchScale) = with(scale) {
     val text = SoundUi.alertTitle(alert.category).uppercase()
-    val width = 104.mdp
+    val width = 140.mdp
     val measurer = rememberTextMeasurer()
-    val lines = with(LocalDensity.current) {
-        measurer.measure(text, SaText.alertTitle, maxLines = 2, constraints = Constraints(maxWidth = width.roundToPx())).lineCount
+    val oneLine = with(LocalDensity.current) {
+        measurer.measure(text, TITLE_ONE_LINE, maxLines = 1, softWrap = false).size.width <= width.roundToPx()
     }
-    FitText(text, SaText.alertTitle, SaColors.Ink, Modifier.centerAt((if (lines > 1) layout.titleY else layout.titleOneLineY).mdp).width(width), maxLines = 2)
+    FitText(text, if (oneLine) TITLE_ONE_LINE else TITLE_TWO_LINES, SaColors.Ink, Modifier.width(if (oneLine) width else 112.mdp), maxLines = 2)
 }
 
-/**
- * "Casa · ahora" con el chip negro "SIGUE SONANDO" mientras el sonido continúa; aviso:
- * icono del contexto + "Casa · hace 2 s".
- */
+private val TITLE_ONE_LINE = SaText.alertTitle.copy(fontSize = 19.sp, lineHeight = 18.sp)
+private val TITLE_TWO_LINES = SaText.alertTitle.copy(fontSize = 16.sp, lineHeight = 15.sp)
+
+/** "Casa · ahora"; aviso: icono del contexto + "Casa · hace 2 s". */
 @Composable
-private fun Subtitle(alert: Alert, nowMs: Long, stillSounding: Boolean, scale: WatchScale, modifier: Modifier) = with(scale) {
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+private fun ContextLine(alert: Alert, nowMs: Long, scale: WatchScale) = with(scale) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
         val text = if (alert.priority == Priority.INFORMATION) {
-            GlyphIcon(alert.context.icon, glyphHeight = 4.6.mdp, tint = SaColors.Ink)
+            GlyphIcon(alert.context.icon, glyphHeight = 5.mdp, tint = SaColors.Ink)
             Spacer(Modifier.width(2.6.mdp))
             "${alert.context.label} · ${relativeTimeSeconds(alert.createdAtMs, nowMs)}"
         } else {
             "${alert.context.label} · ${relativeTime(alert.createdAtMs, nowMs)}"
         }
-        FitText(text, SaText.body, SaColors.Ink, Modifier.widthIn(max = 92.mdp))
-        if (stillSounding) {
-            Spacer(Modifier.width(4.2.mdp))
-            InkChip("SIGUE SONANDO", scale)
-        }
+        FitText(text, SaText.body.copy(fontSize = 7.6.sp), SaColors.Ink, Modifier.widthIn(max = 110.mdp))
     }
 }
 
