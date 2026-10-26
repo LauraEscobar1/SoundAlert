@@ -46,13 +46,6 @@ object SaColors {
     val AmbientBackground = Color(0xFF000000)
     val AmbientContent = Color(0xFFD9D9D9)
     val AmbientDim = Color(0xFF7A7A7A)
-
-    // Nombres de la paleta anterior: se retiran cuando migre la última pantalla.
-    val Peach = Background
-    val Brown = Wine
-    val Rust = Accent
-    val Orange = Accent
-    val BrownFaint = WineFaint
 }
 
 /**
