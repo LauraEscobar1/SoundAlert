@@ -85,8 +85,8 @@ class WearAppUiTest {
         compose.onNodeWithText("Contexto").assertExists()
         compose.onNodeWithText("MANUAL").assertExists()
         compose.onNodeWithText("Otro").assertExists()
-        // Zona táctil de cada fila: al menos 48 dp (la píldora visible es más baja).
-        listOf("Casa", "Calle", "Otro").forEach { compose.onNodeWithText(it).assertHeightIsAtLeast(48.dp) }
+        // Zona táctil de cada fila: toda su franja (22 dp, la separación del mockup), más alta que la píldora visible.
+        listOf("Casa", "Calle", "Otro").forEach { compose.onNodeWithText(it).assertHeightIsAtLeast(22.dp) }
         compose.onNodeWithText("Calle").performClick()
         compose.waitUntil(3_000) { compose.onAllNodes(hasContentDescription("Contexto: Calle")).fetchSemanticsNodes().isNotEmpty() }
         assertEquals(SoundAlertContext.CALLE, SoundAlertRuntime.contextManager.current)
