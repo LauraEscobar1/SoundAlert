@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -147,25 +148,37 @@ fun PriorityBars(priority: Priority, scale: WatchScale, modifier: Modifier = Mod
     }
 }
 
-/** Chip del contexto activo ("⌂ CASA"): 32 × 9, vino al 10 %. Al tocarlo se abre la pantalla de contexto. */
+/**
+ * Botón del contexto activo ("⌂ CASA"): una píldora pequeña de vidrio (10 de alto) con el
+ * icono y el nombre en vino. Al tocarlo se abre la pantalla de contexto; su zona de toque
+ * mide al menos 48 × 48 dp aunque la píldora se vea más pequeña.
+ */
 @Composable
 fun ContextChip(context: SoundAlertContext, onClick: (() -> Unit)?, scale: WatchScale, modifier: Modifier = Modifier) = with(scale) {
     val clickable = if (onClick != null) Modifier.clickable(onClickLabel = "Cambiar contexto", role = Role.Button, onClick = onClick) else Modifier
-    Row(
-        modifier = modifier
-            .height(8.8.mdp)
-            .clip(RoundedCornerShape(50))
-            .background(SaColors.WineFaint)
+    Box(
+        modifier
+            .defaultMinSize(minWidth = MIN_TOUCH, minHeight = MIN_TOUCH)
             .then(clickable)
-            .semantics { contentDescription = "Contexto: ${context.label}" }
-            .padding(start = 6.mdp, end = 5.8.mdp),
-        verticalAlignment = Alignment.CenterVertically,
+            .semantics(mergeDescendants = true) { contentDescription = "Contexto: ${context.label}" },
+        contentAlignment = Alignment.Center,
     ) {
-        GlyphIcon(context.icon, glyphHeight = 3.4.mdp, tint = SaColors.Wine)
-        Spacer(Modifier.width(2.6.mdp))
-        Text(context.label.uppercase(), style = SaText.labelSmall, color = SaColors.Wine, maxLines = 1)
+        Row(
+            Modifier
+                .height(10.mdp)
+                .glass()
+                .padding(start = 5.mdp, end = 5.5.mdp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            GlyphIcon(context.icon, glyphHeight = 4.mdp, tint = SaColors.Wine)
+            Spacer(Modifier.width(2.6.mdp))
+            Text(context.label.uppercase(), style = SaText.labelSmall, color = SaColors.Wine, maxLines = 1)
+        }
     }
 }
+
+/** Zona de toque mínima de los controles pequeños. */
+val MIN_TOUCH = 48.dp
 
 /** Vidrio: acento al 25 % con borde blanco al 45 %. Lo que va encima, en vino y negrita. */
 fun Modifier.glass(shape: Shape = RoundedCornerShape(50)): Modifier =

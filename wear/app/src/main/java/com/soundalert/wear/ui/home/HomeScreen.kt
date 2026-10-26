@@ -32,11 +32,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.material3.Text
 import com.soundalert.wear.SoundAlertRuntime
+import com.soundalert.wear.context.SoundAlertContext
 import com.soundalert.wear.pipeline.PipelineStatus
 import com.soundalert.wear.pipeline.PipelineStatus.Phase
 import com.soundalert.wear.service.ListeningService
 import com.soundalert.wear.ui.SoundUi
 import com.soundalert.wear.ui.components.Clock
+import com.soundalert.wear.ui.components.ContextChip
 import com.soundalert.wear.ui.components.CoreMode
 import com.soundalert.wear.ui.components.FitText
 import com.soundalert.wear.ui.components.JarvisCore
@@ -53,11 +55,11 @@ import kotlin.math.roundToInt
 
 /**
  * Pantallas A (escuchando / reposo) y B (analizando), a partir del estado real del
- * pipeline. Tocar el emblema activa o pausa la escucha. El contexto se abre desde el
- * encabezado de la pantalla de sonidos.
+ * pipeline. Tocar el núcleo del emblema activa o pausa la escucha; el botón del contexto
+ * abre la pantalla de contexto.
  */
 @Composable
-fun HomeScreen(onOpenDiagnostic: (() -> Unit)?) {
+fun HomeScreen(onOpenContext: (() -> Unit)?, onOpenDiagnostic: (() -> Unit)?) {
     val android = LocalContext.current
     val status by PipelineStatus.snapshot.collectAsStateWithLifecycle()
     val currentContext by SoundAlertRuntime.contextManager.context.collectAsStateWithLifecycle()
@@ -96,7 +98,7 @@ fun HomeScreen(onOpenDiagnostic: (() -> Unit)?) {
             else -> null
         }
     }
-    HomeContent(listeningUi(status, permissionDenied), shown, note, micLevel(status), toggle, onOpenDiagnostic)
+    HomeContent(listeningUi(status, permissionDenied), currentContext, shown, note, micLevel(status), toggle, onOpenContext, onOpenDiagnostic)
 }
 
 /** Nivel del bloque de audio actual (dBFS del pipeline) en 0–1, o null si no se está escuchando. */
@@ -120,28 +122,33 @@ fun listeningUi(status: PipelineStatus.Snapshot, permissionDenied: Boolean): Lis
 
 /** A · Escuchando (sin estado; también la usan las previews). */
 @Composable
-fun ListeningContent(ui: ListeningUi, onToggle: () -> Unit = {}, onOpenDiagnostic: (() -> Unit)? = null, level: Float? = null) =
-    HomeContent(ui, detection = null, note = null, level = level, onToggle = onToggle, onOpenDiagnostic = onOpenDiagnostic)
+fun ListeningContent(ui: ListeningUi, context: SoundAlertContext = SoundAlertContext.CASA, onToggle: () -> Unit = {}, onOpenContext: (() -> Unit)? = {}, level: Float? = null) =
+    HomeContent(ui, context, detection = null, note = null, level = level, onToggle = onToggle, onOpenContext = onOpenContext, onOpenDiagnostic = null)
 
 /** B · Analizando (sin estado; también la usan las previews). */
 @Composable
 fun AnalyzingContent(detection: DetectionDisplay, note: String? = null) =
-    HomeContent(ListeningUi("Escuchando", running = true, listening = true), detection, note, level = null, onToggle = {}, onOpenDiagnostic = null)
+    HomeContent(ListeningUi("Escuchando", running = true, listening = true), SoundAlertContext.CASA, detection, note, level = null, onToggle = {}, onOpenContext = null, onOpenDiagnostic = null)
 
 /**
  * A y B comparten pantalla y emblema: al detectar algo, el Jarvis acelera de forma
- * progresiva y los textos se funden. Medidas sobre 192 (todo dentro del margen de
- * seguridad): arriba solo la hora (A) o "IA · ANALIZANDO" (B), en y≈28; el emblema de 134
- * (70 % del ancho) centrado en y = 94; debajo solo "Escuchando" (A) o "Sonido detectado"
- * con el chip del sonido y su confianza (B).
+ * progresiva y los textos se funden. Cuatro elementos repartidos en el alto con huecos
+ * iguales (≈ 6 dp entre sus bordes visibles) y todo dentro del margen de seguridad
+ * (centros sobre 192):
+ *  - A: hora (y≈23,6), botón del contexto (37,4), Jarvis de 108 dp (56 % del ancho,
+ *    centro 100,6) y "Escuchando" (163).
+ *  - B: "IA · ANALIZANDO", "Sonido detectado", el mismo Jarvis y el chip del sonido con su
+ *    confianza, en esas mismas alturas.
  */
 @Composable
 fun HomeContent(
     ui: ListeningUi,
+    context: SoundAlertContext,
     detection: DetectionDisplay?,
     note: String?,
     level: Float?,
     onToggle: () -> Unit,
+    onOpenContext: (() -> Unit)?,
     onOpenDiagnostic: (() -> Unit)?,
 ) {
     val ambient = LocalAmbient.current
@@ -154,12 +161,12 @@ fun HomeContent(
     }
     WatchScreen(background = if (ambient) SaColors.AmbientBackground else SaColors.Background) { scale ->
         with(scale) {
-            // El emblema entero es la zona táctil: activa o pausa la escucha.
-            JarvisCore(
-                mode,
+            JarvisCore(mode, Modifier.centerAt(EMBLEM_Y.mdp).size(EMBLEM.mdp), level = level)
+            // Zona táctil del emblema: su núcleo (64 dp), para no pisar la del botón del contexto.
+            Box(
                 Modifier
                     .centerAt(EMBLEM_Y.mdp)
-                    .size(EMBLEM.mdp)
+                    .size(EMBLEM_TOUCH.mdp)
                     .clip(CircleShape)
                     .combinedClickable(
                         role = Role.Button,
@@ -168,7 +175,6 @@ fun HomeContent(
                         onClick = onToggle,
                     )
                     .semantics { contentDescription = if (ui.running) "Escuchando. Toca para pausar" else "En pausa. Toca para escuchar" },
-                level = level,
             )
             Crossfade(analyzing, animationSpec = tween(450), label = "textos") { showDetection ->
                 Box(Modifier.fillMaxSize()) {
@@ -178,7 +184,7 @@ fun HomeContent(
                             style = SaText.labelSmall,
                             color = ink,
                             maxLines = 1,
-                            modifier = Modifier.centerAt(28.mdp),
+                            modifier = Modifier.centerAt(TOP_Y.mdp),
                         )
                         val percent = String.format(Locale.US, "%d%%", (detection.confidence * 100).roundToInt())
                         Box(
@@ -186,7 +192,7 @@ fun HomeContent(
                                 contentDescription = listOfNotNull("Sonido detectado", SoundUi.possible(detection.category), percent, note).joinToString(", ")
                             },
                         ) {
-                            FitText("Sonido detectado", SaText.title.copy(fontSize = 11.sp, lineHeight = 12.sp), ink, Modifier.centerAt(156.mdp).width(80.mdp))
+                            FitText("Sonido detectado", SaText.title.copy(fontSize = 11.sp, lineHeight = 12.sp), ink, Modifier.centerAt(SECOND_Y.mdp).width(84.mdp))
                             // Chip de vino con el sonido y la confianza en rosa (7,1:1).
                             Text(
                                 "${SoundUi.shortName(detection.category)} · $percent",
@@ -194,15 +200,20 @@ fun HomeContent(
                                 color = if (ambient) SaColors.AmbientBackground else SaColors.Background,
                                 maxLines = 1,
                                 modifier = Modifier
-                                    .centerAt(165.5.mdp)
+                                    .centerAt(BOTTOM_Y.mdp)
                                     .clip(RoundedCornerShape(50))
                                     .background(ink)
                                     .padding(horizontal = 3.mdp, vertical = 1.mdp),
                             )
                         }
                     } else {
-                        Clock(Modifier.centerAt(28.mdp), color = ink)
-                        FitText(ui.title, SaText.title.copy(fontSize = 13.sp, lineHeight = 14.sp), ink, Modifier.centerAt(157.5.mdp).width(90.mdp))
+                        Clock(Modifier.centerAt(TOP_Y.mdp), color = ink)
+                        if (ambient) {
+                            Text(context.label.uppercase(), style = SaText.labelSmall, color = SaColors.AmbientDim, maxLines = 1, modifier = Modifier.centerAt(SECOND_Y.mdp))
+                        } else {
+                            ContextChip(context, onOpenContext, scale, Modifier.centerAt(SECOND_Y.mdp))
+                        }
+                        FitText(ui.title, SaText.title.copy(fontSize = 12.5.sp, lineHeight = 13.5.sp), ink, Modifier.centerAt(BOTTOM_Y.mdp).width(90.mdp))
                     }
                 }
             }
@@ -210,6 +221,12 @@ fun HomeContent(
     }
 }
 
-/** Emblema Jarvis: 134 sobre 192 (≈ 70 % del ancho), centrado en y = 94. */
-private const val EMBLEM = 134f
-private const val EMBLEM_Y = 94f
+/** Alturas (centros sobre 192) de la hora, el segundo elemento y el texto de abajo. */
+private const val TOP_Y = 23.6f
+private const val SECOND_Y = 37.4f
+private const val BOTTOM_Y = 163f
+
+/** Emblema Jarvis: 108 sobre 192 (≈ 56 % del ancho), centrado en y = 100,6; su núcleo tocable mide 64. */
+private const val EMBLEM = 108f
+private const val EMBLEM_Y = 100.6f
+private const val EMBLEM_TOUCH = 64f

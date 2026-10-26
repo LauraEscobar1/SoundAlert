@@ -39,7 +39,7 @@ private object Routes {
  * Navegación de reloj:
  * - Inicio: páginas horizontales  A/B · Escuchando  →  G · Sonidos  →  H · Reloj de sesiones
  *   (indicador de página abajo; se desliza con el dedo).
- * - F · Contexto: tocando el encabezado (contexto) de G. Se vuelve deslizando hacia la derecha.
+ * - F · Contexto: tocando el botón del contexto en A o el encabezado de G. Se vuelve deslizando hacia la derecha.
  * - I · Detalle de sesión: tocando la esfera de H. Se vuelve deslizando hacia la derecha.
  * - C/D/E · Alertas: aparecen encima de cualquier pantalla mientras haya una alerta ACTIVE.
  * - Modo ambiente: se muestra el reposo atenuado, salvo que haya una alerta.
@@ -73,7 +73,7 @@ fun WearApp() {
             }
         } else if (LocalAmbient.current) {
             // Always-on: se ve el reposo (sin animación y en oscuro) desde cualquier pantalla.
-            HomeScreen(onOpenDiagnostic = null)
+            HomeScreen(onOpenContext = null, onOpenDiagnostic = null)
         }
     }
 }
@@ -87,7 +87,7 @@ private fun HomePager(onOpenContext: () -> Unit, onOpenDiagnostic: (() -> Unit)?
         HorizontalPager(state = pagerState) { page ->
             AnimatedPage(pageIndex = page, pagerState = pagerState) {
                 when (page) {
-                    0 -> HomeScreen(onOpenDiagnostic)
+                    0 -> HomeScreen(onOpenContext, onOpenDiagnostic)
                     1 -> SoundsScreen(visible = pagerState.currentPage == page, onOpenContext = onOpenContext)
                     else -> SessionClockScreen(visible = pagerState.currentPage == page, onOpen = onOpenSession)
                 }
