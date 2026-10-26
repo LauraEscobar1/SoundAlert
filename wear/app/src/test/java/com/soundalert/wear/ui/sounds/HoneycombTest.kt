@@ -29,14 +29,15 @@ class HoneycombTest {
     }
 
     @Test
-    fun `medidas del mockup - celdas de 37 x 43 con centros vecinos a 40`() {
-        assertEquals(43.2f, HEX_RADIUS * 2, 0.01f)
-        assertEquals(37.4f, HEX_RADIUS * sqrt(3f), 0.05f)
+    fun `celdas un 10 por ciento mayores que el mockup con centros vecinos a 44`() {
+        assertEquals(43.2f * 1.1f, HEX_RADIUS * 2, 0.01f)
+        assertEquals(41.2f, HEX_RADIUS * sqrt(3f), 0.05f)
+        assertEquals(3f, HEX_GAP)
         // El toque va a la celda más cercana: la zona de cada una mide, entre lados
         // opuestos, la distancia a su vecina más próxima.
         for (a in slots.indices) {
             val nearest = slots.indices.filter { it != a }.minOf { b -> hypot(slots[a].x - slots[b].x, slots[a].y - slots[b].y) }
-            assertEquals("celda $a", 40.2f, nearest, 0.1f)
+            assertEquals("celda $a", 44.2f, nearest, 0.1f)
         }
     }
 
@@ -47,7 +48,7 @@ class HoneycombTest {
             for (k in 0 until 6) {
                 val angle = Math.toRadians(-90.0 + 60 * k)
                 val x = slot.x + HEX_RADIUS * Math.cos(angle)
-                val y = slot.y + 2.6 + HEX_RADIUS * Math.sin(angle)
+                val y = slot.y + 0.6 + HEX_RADIUS * Math.sin(angle)
                 // Dentro del margen de seguridad (~10 % del diámetro).
                 assertTrue("vértice fuera: $x, $y", hypot(x, y) < 96 - 19.2)
             }
