@@ -37,14 +37,14 @@ import java.time.ZoneId
 @Preview(name = "A · Escuchando", device = SMALL_ROUND, showSystemUi = true)
 @Composable
 private fun ListeningPreview() = SoundAlertTheme {
-    ListeningContent(ListeningUi("Escuchando", "Timbre · Alarma · Bebé", running = true, listening = true), SoundAlertContext.CASA, {}, {}, null)
+    ListeningContent(ListeningUi("Escuchando", running = true, listening = true))
 }
 
 @Preview(name = "A · Escuchando (ambiente)", device = SMALL_ROUND, showSystemUi = true)
 @Composable
 private fun ListeningAmbientPreview() = SoundAlertTheme {
     CompositionLocalProvider(LocalAmbient provides true) {
-        ListeningContent(ListeningUi("Escuchando", "Timbre · Alarma · Bebé", running = true, listening = true), SoundAlertContext.CASA, {}, {}, null)
+        ListeningContent(ListeningUi("Escuchando", running = true, listening = true))
     }
 }
 

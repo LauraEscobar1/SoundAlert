@@ -39,7 +39,7 @@ private object Routes {
  * Navegación de reloj:
  * - Inicio: páginas horizontales  A/B · Escuchando  →  G · Sonidos  →  H · Reloj de sesiones
  *   (indicador de página abajo; se desliza con el dedo).
- * - F · Contexto: tocando el chip del contexto. Se vuelve deslizando hacia la derecha.
+ * - F · Contexto: tocando el encabezado (contexto) de G. Se vuelve deslizando hacia la derecha.
  * - I · Detalle de sesión: tocando la esfera de H. Se vuelve deslizando hacia la derecha.
  * - C/D/E · Alertas: aparecen encima de cualquier pantalla mientras haya una alerta ACTIVE.
  * - Modo ambiente: se muestra el reposo atenuado, salvo que haya una alerta.
@@ -73,7 +73,7 @@ fun WearApp() {
             }
         } else if (LocalAmbient.current) {
             // Always-on: se ve el reposo (sin animación y en oscuro) desde cualquier pantalla.
-            HomeScreen(onOpenContext = {}, onOpenDiagnostic = null)
+            HomeScreen(onOpenDiagnostic = null)
         }
     }
 }
@@ -81,14 +81,14 @@ fun WearApp() {
 @Composable
 private fun HomePager(onOpenContext: () -> Unit, onOpenDiagnostic: (() -> Unit)?, onOpenSession: (String) -> Unit) {
     val pagerState = rememberPagerState(pageCount = { PAGES })
-    // Sin el indicador de serie (se superponía al contenido): el inicio dibuja sus
-    // puntitos bajo el subtítulo, dentro de la zona segura.
+    // Sin indicador de página: se superponía al contenido, y el inicio solo muestra la hora,
+    // el emblema y su estado.
     HorizontalPagerScaffold(pagerState = pagerState, pageIndicator = null) {
         HorizontalPager(state = pagerState) { page ->
             AnimatedPage(pageIndex = page, pagerState = pagerState) {
                 when (page) {
-                    0 -> HomeScreen(onOpenContext, onOpenDiagnostic, pageDots = PAGES to 0)
-                    1 -> SoundsScreen(visible = pagerState.currentPage == page)
+                    0 -> HomeScreen(onOpenDiagnostic)
+                    1 -> SoundsScreen(visible = pagerState.currentPage == page, onOpenContext = onOpenContext)
                     else -> SessionClockScreen(visible = pagerState.currentPage == page, onOpen = onOpenSession)
                 }
             }
