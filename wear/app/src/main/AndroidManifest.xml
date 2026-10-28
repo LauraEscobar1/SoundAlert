@@ -29,9 +29,12 @@
             android:name="com.google.android.wearable.standalone"
             android:value="true" />
 
+        <!-- Único punto de entrada de la interfaz. singleTop: la notificación de la escucha
+             vuelve a esta misma pantalla en lugar de abrir otra encima. -->
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

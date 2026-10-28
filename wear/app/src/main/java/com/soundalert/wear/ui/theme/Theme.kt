@@ -100,9 +100,6 @@ object SaText {
     /** Subtítulos ("Timbre · Alarma · Bebé", "Calle · ahora"). */
     val body = TextStyle(fontFamily = SaFonts.Regular, fontSize = 7.1.sp, lineHeight = 8.5.sp, textAlign = TextAlign.Center)
 
-    /** Horario de una sesión ("08:30 – 12:10 · 3 h 40"). */
-    val bodyStrong = TextStyle(fontFamily = SaFonts.SemiBold, fontSize = 6.8.sp, lineHeight = 8.sp, textAlign = TextAlign.Center)
-
     /** "Entendido". */
     val button = TextStyle(fontFamily = SaFonts.SemiBold, fontSize = 7.sp, lineHeight = 8.sp, textAlign = TextAlign.Center)
 

@@ -235,16 +235,6 @@ fun Modifier.centerAt(y: Dp, x: Dp = 0.dp): Modifier = layout { measurable, cons
     }
 }
 
-/** Puntitos de página: el actual en vino, el resto en vino al 35 %. */
-@Composable
-fun PageDots(count: Int, current: Int, scale: WatchScale, modifier: Modifier = Modifier) = with(scale) {
-    Row(modifier.semantics { contentDescription = "Página ${current + 1} de $count" }, horizontalArrangement = Arrangement.spacedBy(2.6.mdp)) {
-        repeat(count) { i ->
-            Box(Modifier.size(2.8.mdp).clip(CircleShape).background(if (i == current) SaColors.Wine else SaColors.Wine.copy(alpha = 0.35f)))
-        }
-    }
-}
-
 /** Mensaje breve ("Perro activado ✓"): se muestra [TOAST_MS] y desaparece. */
 @Stable
 class ToastState {
