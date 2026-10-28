@@ -28,7 +28,7 @@ class ContextManager(
     private val state = MutableStateFlow(restore(initial))
     override val activeContext: StateFlow<SoundAlertContext> = state
 
-    /** Alias de [activeContext] (lo observa la pantalla de diagnóstico). */
+    /** Alias de [activeContext] (lo observa la interfaz). */
     val context: StateFlow<SoundAlertContext> get() = state
 
     fun set(context: SoundAlertContext) {

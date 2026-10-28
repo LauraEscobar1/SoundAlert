@@ -14,12 +14,10 @@ import androidx.wear.compose.material3.HorizontalPagerScaffold
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
-import com.soundalert.wear.BuildConfig
 import com.soundalert.wear.SoundAlertRuntime
 import com.soundalert.wear.ui.alert.AlertScreen
 import com.soundalert.wear.ui.components.LocalAmbient
 import com.soundalert.wear.ui.context.ContextScreen
-import com.soundalert.wear.ui.diagnostic.DiagnosticScreen
 import com.soundalert.wear.ui.home.HomeScreen
 import com.soundalert.wear.ui.sessions.SessionStackScreen
 import com.soundalert.wear.ui.sessions.SessionDetailScreen
@@ -29,7 +27,6 @@ import com.soundalert.wear.ui.state.alertOnScreen
 private object Routes {
     const val HOME = "home"
     const val CONTEXT = "context"
-    const val DIAGNOSTIC = "diagnostic"
     const val SESSION = "session/{id}"
 
     fun session(id: String) = "session/$id"
@@ -57,7 +54,6 @@ fun WearApp() {
             composable(Routes.HOME) {
                 HomePager(
                     onOpenContext = { navController.navigate(Routes.CONTEXT) },
-                    onOpenDiagnostic = if (BuildConfig.DEBUG) ({ navController.navigate(Routes.DIAGNOSTIC) }) else null,
                     onOpenSession = { navController.navigate(Routes.session(it)) },
                 )
             }
@@ -65,7 +61,6 @@ fun WearApp() {
             composable(Routes.SESSION) { entry ->
                 entry.arguments?.getString("id")?.let { SessionDetailScreen(it) }
             }
-            composable(Routes.DIAGNOSTIC) { DiagnosticScreen() }
         }
         if (onScreen != null) {
             key(onScreen.id) {
@@ -73,13 +68,13 @@ fun WearApp() {
             }
         } else if (LocalAmbient.current) {
             // Always-on: se ve el reposo (sin animación y en oscuro) desde cualquier pantalla.
-            HomeScreen(onOpenContext = null, onOpenDiagnostic = null)
+            HomeScreen(onOpenContext = null)
         }
     }
 }
 
 @Composable
-private fun HomePager(onOpenContext: () -> Unit, onOpenDiagnostic: (() -> Unit)?, onOpenSession: (String) -> Unit) {
+private fun HomePager(onOpenContext: () -> Unit, onOpenSession: (String) -> Unit) {
     val pagerState = rememberPagerState(pageCount = { PAGES })
     // Sin indicador de página: se superponía al contenido, y el inicio solo muestra la hora,
     // el emblema y su estado.
@@ -87,7 +82,7 @@ private fun HomePager(onOpenContext: () -> Unit, onOpenDiagnostic: (() -> Unit)?
         HorizontalPager(state = pagerState) { page ->
             AnimatedPage(pageIndex = page, pagerState = pagerState) {
                 when (page) {
-                    0 -> HomeScreen(onOpenContext, onOpenDiagnostic)
+                    0 -> HomeScreen(onOpenContext)
                     1 -> SoundsScreen(visible = pagerState.currentPage == page, onOpenContext = onOpenContext)
                     else -> SessionStackScreen(visible = pagerState.currentPage == page, onOpen = onOpenSession)
                 }
