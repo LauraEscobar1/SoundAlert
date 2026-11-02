@@ -10,13 +10,13 @@ import com.soundalert.wear.pipeline.PipelineStatus
 import com.soundalert.wear.pipeline.PipelineStatus.Phase
 import com.soundalert.wear.rules.Priority
 import com.soundalert.wear.rules.RuleEngine
+import com.soundalert.wear.rules.SoundToggles
 import com.soundalert.wear.ui.SoundUi
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
-import java.time.ZoneOffset
 
 class ScreenStateTest {
 
@@ -80,25 +80,40 @@ class ScreenStateTest {
         assertNull(alertOnScreen(listOf(alert("x", Priority.ATTENTION, 1, AlertStatus.EXPIRED))))
     }
 
-    // ---------- E · Sonidos del contexto (reglas reales, solo lectura) ----------
+    // ---------- G · Sonidos del contexto (rueda) ----------
 
     @Test
-    fun `E lista el catalogo actual del reloj con las reglas reales del contexto`() {
-        val rules = RuleEngine()
+    fun `G muestra las reglas reales del contexto, peligro primero, con lo que apago el usuario`() {
+        val toggles = SoundToggles()
+        val rules = RuleEngine(toggles = toggles)
         for (context in SoundAlertContext.ACTIVE) {
-            val rows = soundRows(context, rules)
-            assertEquals(SoundCategory.KNOWN.toSet(), rows.map { it.category }.toSet())
-            assertEquals(rows.size, rows.map { it.category }.distinct().size)
-            // Peligro primero y siempre activo; solo registro al final.
-            assertEquals(listOf(SoundCategory.SIREN, SoundCategory.FIRE_ALARM, SoundCategory.SMOKE_ALARM), rows.take(3).map { it.category })
-            assertTrue(rows.take(3).all { it.priority == Priority.DANGER })
-            assertEquals(listOf(SoundCategory.BELL, SoundCategory.WARNING_SIGNAL), rows.takeLast(2).map { it.category })
-            assertTrue(rows.takeLast(2).all { it.recordOnly && !it.enabled })
-            for (row in rows) assertEquals("$context ${row.category}", rules.match(row.category, context)?.priority, row.priority)
+            val cells = soundCells(context, rules)
+            assertEquals(rules.availableRules(context).map { it.category }.toSet(), cells.map { it.category }.toSet())
+            assertTrue(cells.none { !it.category.alertable || it.category == SoundCategory.UNKNOWN })
+            assertEquals(cells.sortedBy { it.priority.ordinal }, cells)
+            assertEquals(listOf(SoundCategory.SIREN, SoundCategory.FIRE_ALARM, SoundCategory.SMOKE_ALARM), cells.take(3).map { it.category })
+            assertTrue(cells.all { it.enabled })
         }
-        val street = soundRows(SoundAlertContext.CALLE, rules).associateBy { it.category }
+        toggles.setEnabled(SoundAlertContext.CALLE, SoundCategory.DOG_BARK, enabled = false)
+        toggles.setEnabled(SoundAlertContext.CALLE, SoundCategory.SIREN, enabled = false)
+        val street = soundCells(SoundAlertContext.CALLE, rules).associateBy { it.category }
+        // Peligro: con candado y siempre activo, aunque se intente apagar.
+        assertEquals(SoundCell(SoundCategory.SIREN, Priority.DANGER, enabled = true), street[SoundCategory.SIREN])
+        assertTrue(street.getValue(SoundCategory.SIREN).locked)
+        assertTrue(street.values.filter { it.locked }.all { it.priority == Priority.DANGER && it.enabled })
+        assertEquals(false, street.getValue(SoundCategory.DOG_BARK).locked)
+        assertEquals(SoundCell(SoundCategory.DOG_BARK, Priority.INFORMATION, enabled = false), street[SoundCategory.DOG_BARK])
         assertEquals(Priority.ATTENTION, street.getValue(SoundCategory.CAR_HORN).priority)
-        assertEquals(false, street.getValue(SoundCategory.DOORBELL).enabled)
+        // El timbre de la puerta no se vigila en la calle: no es una celda.
+        assertNull(street[SoundCategory.DOORBELL])
+    }
+
+    @Test
+    fun `A resume solo los sonidos encendidos`() {
+        val toggles = SoundToggles()
+        val rules = RuleEngine(toggles = toggles)
+        toggles.setEnabled(SoundAlertContext.CASA, SoundCategory.DOORBELL, enabled = false)
+        assertEquals(listOf("Alarma", "Bebé", "Sirena"), watchedSummary(SoundAlertContext.CASA, rules, SoundUi::summaryName))
     }
 
     @Test
@@ -112,13 +127,12 @@ class ScreenStateTest {
     // ---------- Formatos de hora ----------
 
     @Test
-    fun `hora del historial - formato 12 o 24 h del reloj hoy, dia y mes otro dia`() {
+    fun `tiempo relativo de las alertas`() {
         val today = Instant.parse("2026-10-07T18:30:00Z").toEpochMilli()
-        assertEquals("16:12", historyTime(Instant.parse("2026-10-07T16:12:00Z").toEpochMilli(), today, is24Hour = true, zone = ZoneOffset.UTC))
-        assertEquals("4:12 PM", historyTime(Instant.parse("2026-10-07T16:12:00Z").toEpochMilli(), today, is24Hour = false, zone = ZoneOffset.UTC))
-        assertEquals("06/10", historyTime(Instant.parse("2026-10-06T23:59:00Z").toEpochMilli(), today, is24Hour = true, zone = ZoneOffset.UTC))
-        assertTrue(isToday(Instant.parse("2026-10-07T00:00:00Z").toEpochMilli(), today, ZoneOffset.UTC))
         assertEquals("ahora", relativeTime(today - 30_000, today))
         assertEquals("hace 2 min", relativeTime(today - 150_000, today))
+        assertEquals("ahora", relativeTimeSeconds(today - 400, today))
+        assertEquals("hace 2 s", relativeTimeSeconds(today - 2_300, today))
+        assertEquals("hace 2 min", relativeTimeSeconds(today - 150_000, today))
     }
 }

@@ -35,8 +35,15 @@ data class SoundRule(val context: SoundAlertContext, val category: SoundCategory
  * Un sonido sin regla en un contexto no es relevante ahí (p. ej. la bocina en
  * CASA) y no genera alerta. UNKNOWN y las categorías de solo registro (BELL,
  * WARNING_SIGNAL) no pueden tener regla: el constructor lo rechaza.
+ *
+ * Con [toggles], los sonidos que el usuario apagó en un contexto se tratan como sin
+ * regla ahí. Encenderlos de nuevo devuelve su prioridad de la tabla. Una regla de
+ * nivel DANGER se aplica siempre, aunque figure como apagada.
  */
-class RuleEngine(rules: Map<SoundAlertContext, Map<SoundCategory, Priority>> = DEFAULT_RULES) {
+class RuleEngine(
+    rules: Map<SoundAlertContext, Map<SoundCategory, Priority>> = DEFAULT_RULES,
+    private val toggles: SoundToggles? = null,
+) {
 
     private val table: Map<SoundAlertContext, Map<SoundCategory, Priority>>
 
@@ -50,11 +57,20 @@ class RuleEngine(rules: Map<SoundAlertContext, Map<SoundCategory, Priority>> = D
     fun match(category: SoundCategory, context: SoundAlertContext): SoundRule? {
         if (!category.known || !category.alertable) return null
         val priority = table[context]?.get(category) ?: return null
+        if (priority != Priority.DANGER && toggles?.isEnabled(context, category) == false) return null
         return SoundRule(context, category, priority)
     }
 
+    /** Reglas que se aplican ahora en [context] (sin los sonidos apagados). */
     fun rulesFor(context: SoundAlertContext): List<SoundRule> =
+        availableRules(context).filter { isEnabled(context, it.category) }
+
+    /** Todas las reglas de la tabla para [context], estén encendidas o no: lo que se puede activar ahí. */
+    fun availableRules(context: SoundAlertContext): List<SoundRule> =
         table[context].orEmpty().map { (category, priority) -> SoundRule(context, category, priority) }
+
+    fun isEnabled(context: SoundAlertContext, category: SoundCategory): Boolean =
+        table[context]?.get(category) == Priority.DANGER || toggles?.isEnabled(context, category) != false
 
     companion object {
         /**

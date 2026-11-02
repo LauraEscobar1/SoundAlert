@@ -1,5 +1,9 @@
 package com.soundalert.wear.ui
 
+import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.assertWidthIsAtLeast
+import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
@@ -9,6 +13,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -18,8 +23,14 @@ import com.soundalert.wear.alert.AlertStatus
 import com.soundalert.wear.classifier.SoundCategory
 import com.soundalert.wear.context.SoundAlertContext
 import com.soundalert.wear.detection.DetectionEvent
+import com.soundalert.wear.pipeline.PipelineStatus
+import com.soundalert.wear.rules.Priority
+import androidx.compose.ui.test.performRotaryScrollInput
+import kotlin.math.abs
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -55,6 +66,8 @@ class WearAppUiTest {
     fun tearDown() {
         val alerts = SoundAlertRuntime.alertManager(app)
         alerts.activeAlerts.forEach { alerts.acknowledge(it.id) }
+        SoundAlertRuntime.soundToggles.setEnabled(SoundAlertContext.CASA, SoundCategory.GLASS_BREAK, enabled = true)
+        PipelineStatus.reset()
         SoundAlertRuntime.contextManager.set(original)
         scenario.close()
     }
@@ -67,27 +80,81 @@ class WearAppUiTest {
         SoundAlertRuntime.alertManager(app).alerts.value.first { it.category == category }
 
     @Test
-    fun reposoMuestraContextoYNavegaAContextoSonidosEHistorial() {
-        compose.onNodeWithContentDescription("Contexto: Casa").assertExists()
-        // Sin el servicio de escucha arrancado (el test no usa el micrófono).
+    fun reposoNavegaAContextoSonidosYSesiones() {
+        // Inicio: la hora, el botón del contexto, el emblema y el estado (sin el servicio de escucha).
         compose.onNodeWithText("En pausa").assertExists()
-        compose.onNodeWithText("Toca para escuchar").assertExists()
+        assertEquals(0, compose.onAllNodes(hasText("Timbre", substring = true)).fetchSemanticsNodes().size)
+        // El botón del contexto se ve pequeño, pero su zona de toque mide al menos 48 × 48 dp.
+        compose.onNodeWithContentDescription("Contexto: Casa").assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp)
 
-        // D · Contexto: solo CASA, CALLE y OTRO; elegir CALLE vuelve al reposo con el nuevo contexto.
+        // F · Contexto: solo CASA, CALLE y OTRO, sin la etiqueta MANUAL; elegir CALLE vuelve con el nuevo contexto.
         compose.onNodeWithContentDescription("Contexto: Casa").performClick()
-        compose.onNodeWithText("Contexto").assertExists()
+        compose.waitUntil(3_000) { compose.onAllNodes(hasText("Contexto")).fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(0, compose.onAllNodes(hasText("MANUAL")).fetchSemanticsNodes().size)
         compose.onNodeWithText("Otro").assertExists()
+        // Zona táctil de cada fila: la fila visible (30 dp) más la separación (4 dp).
+        listOf("Casa", "Calle", "Otro").forEach { compose.onNodeWithText(it).assertHeightIsAtLeast(34.dp) }
         compose.onNodeWithText("Calle").performClick()
         compose.waitUntil(3_000) { compose.onAllNodes(hasContentDescription("Contexto: Calle")).fetchSemanticsNodes().isNotEmpty() }
         assertEquals(SoundAlertContext.CALLE, SoundAlertRuntime.contextManager.current)
         assertEquals(0, compose.onAllNodes(hasText("Universidad")).fetchSemanticsNodes().size)
 
-        // E y F: páginas a la derecha del reposo.
+        // G · Sonidos: su encabezado (icono y nombre del contexto, sin contador) también abre el contexto.
         compose.onRoot().performTouchInput { swipeLeft() }
-        compose.waitUntil(3_000) { compose.onAllNodes(hasText("Sonidos en calle")).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNode(hasContentDescription("Sirena: alerta en Calle, prioridad peligro")).assertExists()
+        compose.waitUntil(3_000) { compose.onAllNodes(hasText("Calle") and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasContentDescription("Sirena, peligro")).assertExists()
+
+        // H: la pila de sesiones, en la página siguiente.
         compose.onRoot().performTouchInput { swipeLeft() }
-        compose.waitUntil(3_000) { compose.onAllNodes(hasText("Historial")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(3_000) { compose.onAllNodes(hasText("Sesiones")).fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    private fun crown(steps: Int) {
+        val px = with(compose.density) { 40.dp.toPx() }
+        repeat(abs(steps)) {
+            compose.onRoot().performRotaryScrollInput { rotateToScrollVertically(if (steps > 0) px else -px) }
+            compose.waitForIdle()
+        }
+    }
+
+    @Test
+    fun laRuedaRecorreLosSonidosEnOrdenYApagaUnSonidoEnEseContexto() {
+        compose.onRoot().performTouchInput { swipeLeft() }
+        // Casa: primero los de peligro (con candado y siempre activos), luego atención y aviso.
+        compose.waitUntil(3_000) { compose.onAllNodes(hasContentDescription("Sirena, peligro")).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Siempre activo").assertExists()
+
+        // Peligro bloqueado: tocarlo solo lo recuerda.
+        compose.onNode(hasContentDescription("Sirena, peligro")).performClick()
+        compose.waitUntil(3_000) { compose.onAllNodes(hasText("Siempre activo por seguridad")).fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(Priority.DANGER, SoundAlertRuntime.ruleEngine.match(SoundCategory.SIREN, SoundAlertContext.CASA)?.priority)
+
+        // La corona gira la rueda un sonido por clic: Incendio, Humo, Alarma, Vidrio roto.
+        crown(4)
+        compose.waitUntil(3_000) { compose.onAllNodes(hasContentDescription("Vidrio roto, atención")).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasContentDescription("Vidrio roto, atención")).performClick()
+        compose.waitUntil(3_000) { compose.onAllNodes(hasText("Desactivado")).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Apagado").assertExists()
+        assertNull(SoundAlertRuntime.ruleEngine.match(SoundCategory.GLASS_BREAK, SoundAlertContext.CASA))
+        assertEquals(Priority.ATTENTION, SoundAlertRuntime.ruleEngine.match(SoundCategory.GLASS_BREAK, SoundAlertContext.OTRO)?.priority)
+        // La confirmación va en la columna de información: debajo del encabezado y a la derecha del círculo grande.
+        val message = compose.onNode(hasText("Desactivado")).getBoundsInRoot()
+        val screen = compose.onRoot().getBoundsInRoot()
+        val dp = (screen.bottom - screen.top) / 192f
+        assertTrue("mensaje en ${message.top}", message.top >= screen.top + dp * 45f)
+        assertTrue("mensaje en ${message.left}", message.left >= screen.left + dp * 100f)
+
+        // Activarlo de nuevo, con el interruptor.
+        compose.onNodeWithText("Apagado").performClick()
+        compose.waitUntil(3_000) { compose.onAllNodes(hasText("Activado")).fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(Priority.ATTENTION, SoundAlertRuntime.ruleEngine.match(SoundCategory.GLASS_BREAK, SoundAlertContext.CASA)?.priority)
+
+        // Al final de la lista, en lugar del siguiente sonido.
+        crown(20)
+        compose.waitUntil(3_000) { compose.onAllNodes(hasText("FIN DE LA LISTA")).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasContentDescription("Agua, aviso")).assertExists()
+        crown(-20)
+        compose.waitUntil(3_000) { compose.onAllNodes(hasContentDescription("Sirena, peligro")).fetchSemanticsNodes().isNotEmpty() }
     }
 
     @Test
@@ -102,31 +169,31 @@ class WearAppUiTest {
     }
 
     @Test
-    fun atencionSeCierraConUnToqueYQuedaEnElHistorial() {
+    fun atencionSeCierraConUnToqueYQuedaEnLaSesion() {
+        // La sesión empieza al escuchar (el estado del pipeline, sin micrófono).
+        PipelineStatus.update { it.copy(phase = PipelineStatus.Phase.LISTENING) }
+        compose.waitUntil(3_000) { SoundAlertRuntime.sessionTracker.sessions.value.lastOrNull()?.let { it.ongoing && it.context == SoundAlertContext.CASA } == true }
         detect(SoundCategory.GLASS_BREAK)
-        compose.waitUntil(3_000) { compose.onAllNodes(hasText("Vidrio roto")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(3_000) { compose.onAllNodes(hasText("VIDRIO ROTO")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("ATENCIÓN").assertExists()
         compose.onNodeWithText("Casa · ahora").assertExists()
 
-        compose.onNodeWithText("Vidrio roto").performClick()
+        compose.onNodeWithText("VIDRIO ROTO").performClick()
         compose.waitUntil(3_000) { compose.onAllNodes(hasText("ATENCIÓN")).fetchSemanticsNodes().isEmpty() }
         assertEquals(AlertStatus.ACKNOWLEDGED, alertOf(SoundCategory.GLASS_BREAK).status)
 
-        compose.onRoot().performTouchInput { swipeLeft() }
-        compose.onRoot().performTouchInput { swipeLeft() }
         compose.waitUntil(3_000) {
-            compose.onAllNodes(hasContentDescription("Vidrio roto, Casa, Confirmada", substring = true)).fetchSemanticsNodes().isNotEmpty()
+            SoundAlertRuntime.sessionTracker.sessions.value.lastOrNull()?.events?.any { it.category == SoundCategory.GLASS_BREAK && it.acknowledged } == true
         }
+        compose.onRoot().performTouchInput { swipeLeft() }
+        compose.onRoot().performTouchInput { swipeLeft() }
+        compose.waitUntil(3_000) { compose.onAllNodes(hasText("1 atención", substring = true)).fetchSemanticsNodes().isNotEmpty() }
     }
 
     @Test
-    fun soloRegistroNoAlertaPeroApareceEnElHistorial() {
+    fun soloRegistroNoAlerta() {
         detect(SoundCategory.BELL, 0.6f)
-        compose.onRoot().performTouchInput { swipeLeft() }
-        compose.onRoot().performTouchInput { swipeLeft() }
-        compose.waitUntil(3_000) {
-            compose.onAllNodes(hasContentDescription("Campana, Casa, Solo registro", substring = true)).fetchSemanticsNodes().isNotEmpty()
-        }
+        compose.waitForIdle()
         assertEquals(0, compose.onAllNodes(hasText("AVISO")).fetchSemanticsNodes().size)
         assertEquals(true, SoundAlertRuntime.alertManager(app).alerts.value.none { it.category == SoundCategory.BELL })
     }

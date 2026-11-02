@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Modo ambiente: la app sigue visible (sin animaciones) cuando la pantalla se atenúa. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Sincronización con la API (Railway). Secundaria: detectar y alertar no necesitan red. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -17,6 +19,10 @@
         android:name=".SoundAlertApp"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
+        feature/wear-layout-fit
+        android:roundIcon="@mipmap/ic_launcher_round"
+
+        main
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
@@ -27,9 +33,12 @@
             android:name="com.google.android.wearable.standalone"
             android:value="true" />
 
+        <!-- Único punto de entrada de la interfaz. singleTop: la notificación de la escucha
+             vuelve a esta misma pantalla en lugar de abrir otra encima. -->
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

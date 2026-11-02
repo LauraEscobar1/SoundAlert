@@ -10,9 +10,6 @@ import com.soundalert.wear.detection.DetectionEvent
 import com.soundalert.wear.pipeline.PipelineStatus
 import com.soundalert.wear.rules.Priority
 import com.soundalert.wear.rules.RuleEngine
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 /*
  * Lógica de presentación: decide QUÉ muestra cada pantalla a partir del estado real
@@ -73,26 +70,23 @@ fun alertOnScreen(alerts: List<Alert>): Alert? =
     alerts.filter { it.status == AlertStatus.ACTIVE }
         .minWithOrNull(compareBy<Alert> { it.priority.ordinal }.thenByDescending { it.createdAtMs })
 
-/** Fila de la pantalla E. [priority] null: el sonido no alerta en este contexto. */
-data class SoundRow(val category: SoundCategory, val priority: Priority?) {
-    val enabled: Boolean get() = priority != null
-    val recordOnly: Boolean get() = !category.alertable
+/**
+ * Sonido de la rueda G. [enabled] false: el usuario la apagó en este contexto (no alerta).
+ * [locked]: sonido de peligro, siempre activo por seguridad.
+ */
+data class SoundCell(val category: SoundCategory, val priority: Priority, val enabled: Boolean) {
+    val locked: Boolean get() = priority == Priority.DANGER
 }
 
 /**
- * Pantalla E: las reglas REALES del reloj para [context] (RuleEngine). Primero las
- * activas por prioridad, después las que no alertan aquí y al final las de solo
- * registro. Solo categorías del catálogo actual del reloj.
+ * Pantalla G: los sonidos REALES que se pueden vigilar en [context] (reglas de la tabla
+ * del RuleEngine), encendidos o apagados por el usuario. Peligro primero, luego atención
+ * y aviso. Las categorías de solo registro y UNKNOWN no tienen regla y no aparecen.
  */
-fun soundRows(context: SoundAlertContext, rules: RuleEngine): List<SoundRow> {
-    val active = rules.rulesFor(context).associate { it.category to it.priority }
-    val enabled = active.entries
-        .sortedWith(compareBy({ it.value.ordinal }, { it.key.ordinal }))
-        .map { SoundRow(it.key, it.value) }
-    val disabled = SoundCategory.ALERTABLE.filter { it !in active }.map { SoundRow(it, null) }
-    val recordOnly = SoundCategory.KNOWN.filterNot { it.alertable }.map { SoundRow(it, null) }
-    return enabled + disabled + recordOnly
-}
+fun soundCells(context: SoundAlertContext, rules: RuleEngine): List<SoundCell> =
+    rules.availableRules(context)
+        .sortedWith(compareBy({ it.priority.ordinal }, { it.category.ordinal }))
+        .map { SoundCell(it.category, it.priority, rules.isEnabled(context, it.category)) }
 
 /** Orden del resumen de la pantalla A: lo más reconocible de cada contexto primero. */
 private val SUMMARY_ORDER = listOf(
@@ -111,22 +105,18 @@ fun watchedSummary(context: SoundAlertContext, rules: RuleEngine, name: (SoundCa
     return ordered.map(name).distinct().take(max)
 }
 
-/** Hora si es de hoy ("10:12", o "4:15 PM" con el reloj en 12 h); "03/10" si es de otro día. */
-fun historyTime(atMs: Long, nowMs: Long, is24Hour: Boolean, zone: ZoneId = ZoneId.systemDefault()): String {
-    val at = Instant.ofEpochMilli(atMs).atZone(zone)
-    val today = Instant.ofEpochMilli(nowMs).atZone(zone).toLocalDate()
-    return at.format(if (at.toLocalDate() != today) DAY else if (is24Hour) HOUR_24 else HOUR_12)
-}
-
-fun isToday(atMs: Long, nowMs: Long, zone: ZoneId = ZoneId.systemDefault()): Boolean =
-    Instant.ofEpochMilli(atMs).atZone(zone).toLocalDate() == Instant.ofEpochMilli(nowMs).atZone(zone).toLocalDate()
-
 /** "ahora" durante el primer minuto; después "hace N min". */
 fun relativeTime(atMs: Long, nowMs: Long): String {
     val minutes = (nowMs - atMs) / 60_000
     return if (minutes < 1) "ahora" else "hace $minutes min"
 }
 
-private val HOUR_24 = DateTimeFormatter.ofPattern("HH:mm")
-private val HOUR_12 = DateTimeFormatter.ofPattern("h:mm a", java.util.Locale.US)
-private val DAY = DateTimeFormatter.ofPattern("dd/MM")
+/** Aviso: "ahora" el primer segundo, "hace 2 s" durante el primer minuto y después "hace N min". */
+fun relativeTimeSeconds(atMs: Long, nowMs: Long): String {
+    val seconds = (nowMs - atMs) / 1_000
+    return when {
+        seconds < 1 -> "ahora"
+        seconds < 60 -> "hace $seconds s"
+        else -> relativeTime(atMs, nowMs)
+    }
+}

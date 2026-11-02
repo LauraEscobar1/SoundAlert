@@ -35,6 +35,7 @@ Fase 3: interfaz de los mockups y sincronización con el backend (Railway → Su
   Repeticiones: un sonido sostenido llega como un único evento (estabilizador); además no se crea otra alerta de una categoría con una alerta `ACTIVE`, ni antes de 10 s desde la anterior de esa categoría (cooldown). Confirmar no detiene el micrófono ni YAMNet. Historial en memoria de las últimas 50 alertas.
 - **Vibración** (`vibration/`): `AndroidAlertVibrator` usa `VibratorManager` + `VibrationEffect.createWaveform`, con uso `ALARM` para `DANGER`/`ATTENTION` y `NOTIFICATION` para `INFORMATION`. En el emulador no se siente; se comprueba con `adb shell dumpsys vibrator_manager`.
 - **Confirmar un `DANGER`**: botón "Entendido" de la pantalla de alerta, o acción "Confirmar" de la notificación de escucha mientras haya un peligro activo.
+- **Sonidos apagados**: lo que el usuario desactiva en la pantalla de sonidos se trata como sin regla en ese contexto (ver *Interfaz del reloj*).
 
 Vibración: una vibración en curso de mayor prioridad no se interrumpe por otra de menor prioridad (Android sustituye la vibración actual por la nueva); la alerta se crea igual y solo se omite su vibración. Confirmar una alerta solo corta la vibración si es la suya. El historial en memoria recorta solo alertas cerradas: una `ACTIVE` nunca se pierde.
 
@@ -44,21 +45,31 @@ Valores en `config/AlertConfig.kt` (timeouts, cooldown, `dangerRepeatIntervalMs`
 
 ## Interfaz del reloj
 
-Jetpack Compose para Wear OS (Material 3, `ui/`). Las pantallas solo **leen** el estado que ya existe (`PipelineStatus`, `AlertManager`, `ContextManager`, `RuleEngine`, `DetectionHistory`); no deciden nada del sonido.
+Jetpack Compose para Wear OS (Material 3, `ui/`). Las pantallas solo **leen** el estado que ya existe (`PipelineStatus`, `AlertManager`, `ContextManager`, `RuleEngine`, `SessionTracker`); no deciden nada del sonido. Lo único que se puede cambiar desde el reloj es el contexto (F) y qué sonidos alertan en cada contexto (G).
 
 | Pantalla | Qué muestra | De dónde salen los datos |
 |----------|-------------|--------------------------|
-| A · Reposo | Hora, chip del contexto, oreja (tocar = activar/pausar), "Escuchando" y 3 sonidos vigilados | `PipelineStatus.phase`, `ContextManager`, `RuleEngine.rulesFor` |
-| B · Sonido detectado | "IA · ANALIZANDO" / "IA · CONFIRMADO", onda, "Posible sirena 94 %", y si no alerta en ese contexto o es solo registro | Clases principales de YAMNet (≥ umbral de fin 0,15) y último `Started` del estabilizador (`ui/state/DetectionTracker`). UNKNOWN nunca se muestra |
-| C · Alerta | PELIGRO: pantalla roja + "Entendido". ATENCIÓN: anillo ámbar, un toque la cierra. AVISO: icono azul + barra de 5 s | La alerta ACTIVE más urgente del `AlertManager`; estados, tiempos y vibración son los suyos |
-| D · Contexto | CASA, CALLE, OTRO (manual; se guarda en el reloj) | `ContextManager.set` |
-| E · Sonidos en *contexto* | Reglas reales del contexto: punto = prioridad, interruptor = alerta aquí. **Solo lectura** | `RuleEngine` |
-| F · Historial | Detecciones y alertas: contexto, estado (confirmada, sin confirmar, se cerró sola, sin alerta, solo registro) y hora | Backend si hay conexión (+ lo pendiente de enviar); si no, memoria del reloj |
+| A · Escuchando | Columna centrada: la hora (9 sp, hora local), la píldora de vidrio del contexto (abre F), el Jarvis de 95 dp (50 % del ancho: marcas, arco con estela que gira cada 8 s, anillo interior al revés cada 16 s, halo que respira, núcleo y 5 barras; mantener presionado ~1 s el núcleo = pausar/reanudar) y "Escuchando" con una onda y un brillo que recorren las letras. En modo ambiente, emblema estático y simplificado | `PipelineStatus.phase` |
+| B · Analizando | Fundido cruzado desde A: el Jarvis pasa a 88 dp y acelera de forma progresiva (arco en 2,6 s, anillo en 4 s, círculo de acento y 9 barras), "Sonido detectado" con la misma animación más rápida y "Posible sirena" con un chip "94%" que late; al terminar, lo mismo a la inversa | Clases principales de YAMNet (≥ umbral de fin 0,15) y último `Started` del estabilizador (`ui/state/DetectionTracker`). Por debajo del umbral de su categoría no hay alerta |
+| C · Peligro | Pantalla roja, 3 barras, icono con 3 ondas, titular, "SIGUE SONANDO" mientras suena, anillo negro y "Entendido" | La alerta ACTIVE más urgente del `AlertManager`; no se cierra sola |
+| D · Atención | Pantalla ámbar, 2 barras, 2 ondas, sin botón; anillo y barra de cuenta atrás de 10 s | `AlertManager` (`attentionTimeoutMs`) |
+| E · Aviso | Pantalla azul, 1 barra, campana con ecos, sin botón; anillo y barra de 5 s | `AlertManager` (`informationTimeoutMs`) |
+| F · Contexto | CASA, CALLE, OTRO en una lista fluida sin recuadros; el activo lleva una píldora de vidrio con check que se desliza al cambiar. Desplazamiento con inercia por gesto y corona | `ContextManager.set` |
+| G · Sonidos en *contexto* | Rueda de sonidos: los que tienen regla en el contexto sobre una curva punteada a la izquierda; el actual grande (28 % del diámetro) con nombre, nivel e interruptor a la derecha, el anterior y el siguiente pequeños y atenuados, y "FIN DE LA LISTA" al final. La corona o deslizar en vertical la giran con inercia y encaje (vibración corta por sonido). Tocar el círculo o el interruptor = activar/desactivar, con una píldora "Desactivado ✓"/"Activado ✓" que se va sola; peligro con candado, siempre activo. El encabezado abre F | `RuleEngine.availableRules` + `SoundToggles` |
+| H · Pila de sesiones | Tarjetas apiladas con las sesiones de hoy (de la más reciente a la más antigua) y al final "Tu día". Cada sesión: contexto, duración, horario local, línea de tiempo con sus sonidos y un resumen. Se pasa de tarjeta deslizando o con la corona (con vibración); un toque abre el detalle | `SessionTracker` |
+| I · Detalle de sesión | Arco de 240° del inicio al fin con cada sonido en su minuto; tarjeta con el sonido seleccionado, su hora y qué pasó con él | `SessionTracker` |
 
-Navegación: A → E → F deslizando en horizontal (indicador de página abajo); D tocando el chip del contexto y se vuelve deslizando a la derecha; C aparece encima de cualquier pantalla. Las listas se desplazan con la corona y las filas se estrechan hacia el borde (`TransformingLazyColumn`). En builds de depuración, una pulsación larga en la oreja abre la pantalla de diagnóstico anterior.
+Navegación: A → G → H deslizando en horizontal (sin indicador de página superpuesto); F tocando el botón del contexto de A o el encabezado de G, e I tocando una tarjeta de sesión de H (se vuelve deslizando a la derecha); C, D y E aparecen encima de cualquier pantalla. Mantener presionado ~1 s el núcleo del Jarvis solo pausa o reanuda la escucha (con un aviso de vidrio); no navega a ninguna otra pantalla. `MainActivity` es el único punto de entrada.
 
-- Tipografía: Archivo variable (`res/font/archivo.ttf`, OFL, ver `assets/NOTICE-archivo.txt`). Iconos: Material Icons (Apache 2.0) como vectores locales en `res/drawable/`. Colores medidos sobre los mockups (`ui/theme/Theme.kt`).
-- E es de solo lectura porque el `RuleEngine` no aplica reglas personalizadas: un interruptor editable no tendría efecto.
+- **Sonidos por contexto** (`rules/SoundToggles.kt`): lo que se apaga en G se guarda por contexto (`SharedPreferences`) y el `RuleEngine` lo trata como "sin regla": el sonido se sigue detectando, pero no alerta ni vibra. Encenderlo devuelve su prioridad de la tabla. Se puede apagar cualquier sonido, también los de peligro.
+- **Sesiones** (`session/`): una sesión empieza al reanudar la escucha o al cambiar de contexto mientras se escucha, y termina con el siguiente cambio o al pausar. Cada sonido detectado se anota en su sesión, alerte o no; si alertó, lleva el nivel de su alerta y se marca al confirmarla. Las sesiones vacías de menos de un minuto (pausar y reanudar) se descartan. Se guardan en `files/sessions.json` (JSON atómico, como la cola de sincronización; el proyecto no usa Room ni DataStore). Si el proceso muere con una sesión abierta, se cierra en su último momento conocido. Logs: `adb logcat -s SA/Session`.
+- **Modo ambiente**: `AmbientLifecycleObserver` (`androidx.wear:wear`). En always-on se ve el reposo sin animaciones y sobre negro desde cualquier pantalla, salvo que haya una alerta (que mantiene la pantalla encendida).
+- Colores (paleta rosa "Cherry Marshmallow", `ui/theme/Theme.kt`): fondo `#EAADC1`, títulos, texto e iconos en vino `#5F0C2F`, acento `#A3245C`, vidrio del acento al 25 % con borde blanco al 45 %. Las alertas usan rojo `#F03A2E`, ámbar `#F5A90A` y azul `#5BA8F5` con texto `#141414`, solo en alertas e indicadores de nivel. Todos los textos superan 4,5:1 (el más justo, `#141414` sobre el rojo, da 4,7:1); lo comprueba `ContrastTest`.
+- Hora: siempre local (zona horaria y formato 12/24 h del sistema); se actualiza al empezar cada minuto y al volver a la app.
+- Ícono: adaptativo, en `res/mipmap-*` (`android:icon` y `android:roundIcon`).
+- Tipografía: Archivo variable (`res/font/archivo.ttf`, OFL, ver `assets/NOTICE-archivo.txt`) condensada y en negrita para títulos; monoespaciada para las etiquetas. Iconos: Material Icons (Apache 2.0) como vectores locales en `res/drawable/`.
+- Previews de A a I (pantalla redonda pequeña, 192 dp) en `ui/preview/ScreenPreviews.kt`.
+- El reloj ya no lee el historial del backend; la sincronización sigue enviando detecciones, contexto y confirmaciones.
 
 ## Conexión con el backend (Railway)
 

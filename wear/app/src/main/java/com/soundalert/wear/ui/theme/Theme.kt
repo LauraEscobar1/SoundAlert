@@ -8,34 +8,49 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material3.MaterialTheme
 import com.soundalert.wear.R
 
-/** Colores medidos sobre los mockups. */
+/**
+ * Tokens del diseño (paleta rosa "Cherry Marshmallow"). Toda la interfaz toma sus colores
+ * de aquí. Los colores de alerta (Danger, Attention, Information) y la tinta [Ink] solo
+ * se usan en las pantallas de alerta y en los indicadores de nivel.
+ *
+ * Contraste (lo comprueba ContrastTest): vino sobre el rosa 7,1:1, sobre el vidrio 5,2:1
+ * y sobre las filas tenues 6,2:1; tinta sobre peligro 4,7:1, atención 9,3:1, aviso 7,3:1.
+ */
 object SaColors {
-    val Background = Color(0xFF000000)
-    /** Filas, chip de contexto, círculo de la oreja. */
-    val Surface = Color(0xFF1E1E1E)
-    /** Filas de sonidos desactivados en el contexto. */
-    val SurfaceDim = Color(0xFF151515)
-    /** Barras de prioridad apagadas, barras laterales de la onda. */
-    val Inactive = Color(0xFF3A3A3A)
-    /** Fondo de la barra de progreso y de la píldora de confianza. */
-    val Track = Color(0xFF2A2A2A)
-    val ToggleOff = Color(0xFF616161)
-    val OnSurface = Color(0xFFFFFFFF)
-    val Secondary = Color(0xFFA3A3A3)
-    val Muted = Color(0xFF8A8A8A)
+    /** Fondo sólido de escucha, análisis, contexto, sonidos e historial. */
+    val Background = Color(0xFFEAADC1)
+    /** Títulos, texto e iconos (los títulos en negrita). */
+    val Wine = Color(0xFF5F0C2F)
+    /** Acento: arco del Jarvis, sesión en curso y sesión seleccionada, detalles. */
+    val Accent = Color(0xFFA3245C)
 
-    val Danger = Color(0xFFE5251C)
-    val Attention = Color(0xFFFFB21A)
-    val Information = Color(0xFF6CB8FF)
+    /** Vidrio de lo seleccionado o activo: acento al 25 % con borde blanco al 45 %; encima, vino en negrita. */
+    val Glass = Accent.copy(alpha = 0.25f)
+    val GlassBorder = Color.White.copy(alpha = 0.45f)
+
+    /** Pistas y chips tenues (vino al 10 %). */
+    val WineFaint = Wine.copy(alpha = 0.10f)
+
+    /** Tinta del texto sobre los colores de alerta. */
+    val Ink = Color(0xFF141414)
+    val Danger = Color(0xFFF03A2E)
+    val Attention = Color(0xFFF5A90A)
+    val Information = Color(0xFF5BA8F5)
+
+    /** Modo ambiente (always-on): fondo negro y trazos grises, sin color. */
+    val AmbientBackground = Color(0xFF000000)
+    val AmbientContent = Color(0xFFD9D9D9)
+    val AmbientDim = Color(0xFF7A7A7A)
 }
 
 /**
  * Archivo (OFL, `res/font/archivo.ttf`): fuente variable con ejes de peso y de
- * ancho, para la tipografía condensada de los mockups con un solo archivo.
+ * ancho, para la tipografía condensada del diseño con un solo archivo.
  */
 object SaFonts {
     private fun archivo(weight: Int, width: Float) = FontFamily(
@@ -46,62 +61,62 @@ object SaFonts {
         ),
     )
 
-    /** Titulares de alerta ("SIRENA DE EMERGENCIA"). */
-    val Black = archivo(weight = 900, width = 62f)
+    /** Titulares de alerta ("ALARMA DE INCENDIO"): negra y condensada. */
+    val Black = archivo(weight = 880, width = 76f)
 
-    /** "Escuchando", "Sonido detectado", títulos de pantalla. */
-    val Bold = archivo(weight = 800, width = 72f)
+    /** "Escuchando", "Sonido detectado", nombre de la sesión: negrita condensada. */
+    val Bold = archivo(weight = 800, width = 76f)
 
-    /** Filas de lista. */
-    val SemiBold = archivo(weight = 600, width = 100f)
+    /** "Contexto", "Calle" en los encabezados. */
+    val Heading = archivo(weight = 780, width = 92f)
+
+    /** Filas, celdas, tarjetas, botones y la hora. */
+    val SemiBold = archivo(weight = 680, width = 96f)
 
     /** Texto secundario. */
-    val Regular = archivo(weight = 450, width = 100f)
+    val Regular = archivo(weight = 430, width = 100f)
 
-    /** Etiquetas técnicas ("PELIGRO", "IA · ANALIZANDO") y horas. */
+    /** Etiquetas en mayúsculas ("PELIGRO", "IA · ANALIZANDO", "5 DE 7"). */
     val Mono = FontFamily.Monospace
 }
 
 /**
- * Tamaños medidos sobre los mockups (pantalla de 192 dp, escala 1:1). Mismas familias,
- * pesos y anchos de siempre (SaFonts); solo cambian tamaño e interlineado.
+ * Tamaños medidos sobre el mockup final (pantalla de 192 dp, escala 1:1): cada uno
+ * reproduce la altura de mayúscula y el ancho de su texto en el diseño.
  */
 object SaText {
-    /** "SIRENA DE / EMERGENCIA": mayúsculas de 13,1 dp, 17,2 dp entre líneas. */
-    val alertTitle = TextStyle(fontFamily = SaFonts.Black, fontSize = 19.sp, lineHeight = 17.sp, textAlign = TextAlign.Center)
+    /** "ALARMA DE / INCENDIO": mayúscula de 11,4 dp y 14,9 dp entre líneas. */
+    val alertTitle = TextStyle(fontFamily = SaFonts.Black, fontSize = 15.8.sp, lineHeight = 14.9.sp, textAlign = TextAlign.Center)
 
-    /** "Escuchando", "Sonido detectado", "Bocina de / vehículo", "Timbre". */
-    val title = TextStyle(fontFamily = SaFonts.Bold, fontSize = 16.5.sp, lineHeight = 16.sp, textAlign = TextAlign.Center)
+    /** "Escuchando", "Sonido detectado", "Universidad". */
+    val title = TextStyle(fontFamily = SaFonts.Bold, fontSize = 13.8.sp, lineHeight = 15.sp, textAlign = TextAlign.Center)
 
-    /** "Contexto", "Sonidos en calle", "Historial". */
-    val screenTitle = TextStyle(fontFamily = SaFonts.Bold, fontSize = 11.5.sp, lineHeight = 13.sp)
+    /** "Contexto", "Calle" junto a su icono. */
+    val screenTitle = TextStyle(fontFamily = SaFonts.Heading, fontSize = 9.9.sp, lineHeight = 11.sp)
 
-    /** Filas de las listas ("Calle", "Sirena", "Bocina"). */
-    val row = TextStyle(fontFamily = SaFonts.SemiBold, fontSize = 9.5.sp, lineHeight = 11.sp)
+    /** Filas de contexto. */
+    val row = TextStyle(fontFamily = SaFonts.SemiBold, fontSize = 6.9.sp, lineHeight = 8.sp)
 
     /** Subtítulos ("Timbre · Alarma · Bebé", "Calle · ahora"). */
-    val body = TextStyle(fontFamily = SaFonts.Regular, fontSize = 7.8.sp, lineHeight = 9.5.sp, textAlign = TextAlign.Center)
+    val body = TextStyle(fontFamily = SaFonts.Regular, fontSize = 7.1.sp, lineHeight = 8.5.sp, textAlign = TextAlign.Center)
 
     /** "Entendido". */
-    val button = TextStyle(fontFamily = SaFonts.SemiBold, fontSize = 9.sp, lineHeight = 11.sp, textAlign = TextAlign.Center)
+    val button = TextStyle(fontFamily = SaFonts.SemiBold, fontSize = 7.sp, lineHeight = 8.sp, textAlign = TextAlign.Center)
 
-    /** Hora de las pantallas A y B. */
-    val clock = TextStyle(fontFamily = SaFonts.SemiBold, fontSize = 10.5.sp, lineHeight = 12.sp)
+    /** Hora ("10:24"). */
+    val clock = TextStyle(fontFamily = SaFonts.SemiBold, fontSize = 7.2.sp, lineHeight = 8.5.sp)
 
-    /** Hora de las listas (D, E, F): más pequeña y gris en el mockup. */
-    val clockSmall = TextStyle(fontFamily = SaFonts.SemiBold, fontSize = 8.5.sp, lineHeight = 10.sp)
+    /** "PELIGRO", "ATENCIÓN", "AVISO". */
+    val label = TextStyle(fontFamily = SaFonts.Mono, fontWeight = FontWeight.Bold, fontSize = 5.8.sp, lineHeight = 7.sp, letterSpacing = 0.12.em)
 
-    /** "PELIGRO", "ATENCIÓN", "AVISO". El mockup no separa las letras más allá de la monoespaciada. */
-    val label = TextStyle(fontFamily = SaFonts.Mono, fontWeight = FontWeight.Bold, fontSize = 7.9.sp, lineHeight = 9.sp)
+    /** "IA · ANALIZANDO", chip "CASA", píldora "94%", "SESIÓN 3 DE 4". */
+    val labelSmall = TextStyle(fontFamily = SaFonts.Mono, fontWeight = FontWeight.Bold, fontSize = 5.5.sp, lineHeight = 6.5.sp, letterSpacing = 0.02.em)
 
-    /** "IA · ANALIZANDO", chip "CASA", píldora "94%". */
-    val labelSmall = TextStyle(fontFamily = SaFonts.Mono, fontWeight = FontWeight.Bold, fontSize = 7.sp, lineHeight = 8.5.sp)
+    /** Etiquetas junto a un título ("MANUAL", "5 DE 7"), números de la esfera y horas del detalle. */
+    val tag = TextStyle(fontFamily = SaFonts.Mono, fontWeight = FontWeight.Medium, fontSize = 5.2.sp, lineHeight = 6.sp, letterSpacing = 0.08.em)
 
-    /** Etiqueta junto al título de las listas ("MANUAL", "HOY"). */
-    val tag = TextStyle(fontFamily = SaFonts.Mono, fontSize = 5.5.sp, lineHeight = 7.sp)
-
-    /** Hora del historial ("10:12"). */
-    val time = TextStyle(fontFamily = SaFonts.Mono, fontSize = 6.5.sp, lineHeight = 8.sp)
+    /** Chip negro de las alertas ("SIGUE SONANDO"). */
+    val chip = TextStyle(fontFamily = SaFonts.Mono, fontWeight = FontWeight.Bold, fontSize = 5.sp, lineHeight = 6.sp, letterSpacing = 0.1.em)
 }
 
 @Composable
