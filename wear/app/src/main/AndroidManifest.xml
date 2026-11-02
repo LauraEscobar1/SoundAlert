@@ -19,8 +19,12 @@
         android:name=".SoundAlertApp"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
+        feature/wear-layout-fit
         android:roundIcon="@mipmap/ic_launcher_round"
+
+        main
         android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault">
 
