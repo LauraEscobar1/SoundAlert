@@ -83,10 +83,6 @@ Desde la **rueda de sonidos** se puede activar o desactivar cada sonido en cada 
 
 La escucha se agrupa en **sesiones**: una sesión empieza al reanudar la escucha o al cambiar de contexto, y termina con el siguiente cambio o al pausar. Cada sonido detectado se anota en su sesión, haya alertado o no, junto con su nivel y si la persona lo confirmó. Las sesiones vacías de menos de un minuto se descartan.
 
-- **Historial de sesiones:** tarjetas apiladas con las sesiones de hoy, de la más reciente a la más antigua, con su contexto, duración, horario, línea de tiempo y resumen.
-- **Tu día:** número de sesiones, tiempo escuchando, alertas por nivel y la sesión más tranquila.
-- **Detalle de sesión:** un arco del inicio al fin de la sesión con cada sonido en su minuto.
-
 El historial se guarda en el propio reloj.
 
 ## Inteligencia artificial: YAMNet
