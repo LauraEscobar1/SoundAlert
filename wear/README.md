@@ -205,7 +205,6 @@ adb logcat -s SA/Eval              # resultado por clip y RESUMEN por categoría
 - LiteRT 2.2.0 añade al APK `FOREGROUND_SERVICE_DATA_SYNC` y WorkManager, que no usamos, además de librerías nativas pesadas: el APK de debug pesa ~50 MB.
 - El servicio no se reanuda solo tras reiniciar el reloj ni si Android mata el proceso: Android 14+ no da acceso al micrófono a un servicio iniciado en segundo plano.
 - La latencia medida en el emulador (~1 ms) usa la CPU del Mac: no es representativa de un reloj. La batería solo se puede medir en un reloj físico.
-- Las vibraciones de `INFORMATION` usan `USAGE_NOTIFICATION`, y en Wear OS 7 (API 37) el sistema las ignora fuera de una notificación (`dumpsys vibrator_manager` → `ignored_app_ops`, restricción de audio "Zen" activa aunque No molestar esté apagado). `DANGER` y `ATTENTION` (`USAGE_ALARM`) sí vibran. Pendiente de decidir el cambio de uso.
 - El backend fecha cada detección al recibirla: lo que se envía desde la cola sin conexión queda con la hora de envío, y el cooldown del backend puede marcar como `COOLDOWN` detecciones que llegan juntas.
 - Cada instalación es un dispositivo nuevo en el backend (el id se guarda en los datos de la app; `connectedDebugAndroidTest` desinstala la app).
 - Con la app en segundo plano, una alerta no enciende la pantalla: `DANGER` sigue en la notificación de escucha. Mostrarla a pantalla completa requiere `USE_FULL_SCREEN_INTENT`, restringido desde Android 14.
