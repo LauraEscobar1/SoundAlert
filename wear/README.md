@@ -29,11 +29,11 @@ Fase 3: interfaz de los mockups y sincronización con el backend (Railway → Su
 | Prioridad | Vibración | Cierre |
 |-----------|-----------|--------|
 | `DANGER` | 3 largas (600 ms); se repiten cada 15 s mientras siga sin confirmar | Solo con confirmación explícita → `ACKNOWLEDGED`, que detiene la repetición. Nunca expira |
-| `ATTENTION` | 2 medias (350 ms) | Toque → `ACKNOWLEDGED`, o a los 10 s → `EXPIRED` |
-| `INFORMATION` | 1 corta (150 ms) | Toque → `ACKNOWLEDGED`, o a los 5 s → `EXPIRED` |
+| `ATTENTION` | 2 medias (400 ms, amplitud 200/255) | Toque → `ACKNOWLEDGED`, o a los 10 s → `EXPIRED` |
+| `INFORMATION` | 1 suave (300 ms, amplitud 140/255) | Toque → `ACKNOWLEDGED`, o a los 5 s → `EXPIRED` |
 
   Repeticiones: un sonido sostenido llega como un único evento (estabilizador); además no se crea otra alerta de una categoría con una alerta `ACTIVE`, ni antes de 10 s desde la anterior de esa categoría (cooldown). Confirmar no detiene el micrófono ni YAMNet. Historial en memoria de las últimas 50 alertas.
-- **Vibración** (`vibration/`): `AndroidAlertVibrator` usa `VibratorManager` + `VibrationEffect.createWaveform`, con uso `ALARM` para `DANGER`/`ATTENTION` y `NOTIFICATION` para `INFORMATION`. En el emulador no se siente; se comprueba con `adb shell dumpsys vibrator_manager`.
+- **Vibración** (`vibration/`): `AndroidAlertVibrator` usa `VibratorManager` + `VibrationEffect.createWaveform`, con uso `ALARM` en los tres niveles (con `NOTIFICATION` el sistema aplica la intensidad de notificaciones y "No molestar", y el aviso no se sentía). `ATTENTION` e `INFORMATION` llevan amplitud explícita si el vibrador la soporta; si no, amplitud por defecto con la misma duración. En el emulador no se siente; se comprueba con `adb shell dumpsys vibrator_manager`.
 - **Confirmar un `DANGER`**: botón "Entendido" de la pantalla de alerta, o acción "Confirmar" de la notificación de escucha mientras haya un peligro activo.
 - **Sonidos apagados**: lo que el usuario desactiva en la pantalla de sonidos se trata como sin regla en ese contexto (ver *Interfaz del reloj*).
 
@@ -114,7 +114,7 @@ Si el emulador no puede abrir el micrófono del Mac, su log muestra `coreaudio: 
 ## Logs
 
 ```bash
-adb logcat -v time 'SA/Service:V' 'SA/Audio:V' 'SA/YAMNet:V' 'SA/Event:V' 'SA/Context:V' 'SA/Rule:V' 'SA/Alert:V' 'SA/Vibration:V' '*:S'
+adb logcat -v time 'SA/Service:V' 'SA/Audio:V' 'SA/YAMNet:V' 'SA/Event:V' 'SA/Context:V' 'SA/Rule:V' 'SA/Alert:V' 'SoundAlertVibe:V' '*:S'
 # añade 'SA/Gate:V' para ver el nivel de cada bloque
 ```
 
@@ -128,7 +128,7 @@ adb logcat -v time 'SA/Service:V' 'SA/Audio:V' 'SA/YAMNet:V' 'SA/Event:V' 'SA/Co
 | `SA/Context` | `contexto actual=CALLE (antes OTRO)` |
 | `SA/Rule` | `SIREN + CALLE -> DANGER` o `CAR_HORN + CASA -> sin regla` |
 | `SA/Alert` | `START DANGER SIREN …`, `REPEAT DANGER … vibración #2`, `ACK DANGER …`, `EXPIRED ATTENTION …`, `COOLDOWN …`, `… ya está ACTIVE; no se crea otra` |
-| `SA/Vibration` | `DANGER pattern=3_LONG timings=[0, 600, 250, 600, 250, 600]` |
+| `SoundAlertVibe` | `nivel=INFORMATION patrón=1_SHORT timings=[0, 300] amplitudes=[0, 140] amplitud=140 uso=ALARM controlAmplitud=true aceptado=true` |
 
 ## Parámetros
 

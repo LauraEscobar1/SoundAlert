@@ -344,7 +344,7 @@ class AlertManagerTest {
         contextManager.set(SoundAlertContext.OTRO)
         val m = manager()
         m.onDetection(started(CAR_HORN))
-        advanceTimeBy(1_000) // el patrón de la bocina (950 ms) ya terminó
+        advanceTimeBy(1_100) // el patrón de la bocina (1050 ms) ya terminó
         m.onDetection(started(DOORBELL))
         advanceTimeBy(60_000); runCurrent()
         assertEquals(listOf(Priority.ATTENTION, Priority.INFORMATION), vibrator.vibrations.map { it.first })
