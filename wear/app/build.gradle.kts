@@ -14,8 +14,8 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        // El emulador objetivo y los relojes actuales son arm64.
-        ndk { abiFilters += "arm64-v8a" }
+        // Emulador arm64; la Galaxy Watch4 (SM-R860) usa espacio de usuario de 32 bits.
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
         // API pública del backend (Railway). No es un secreto: el reloj nunca lleva
         // claves. Se cambia con -Psoundalert.apiUrl=... o en ~/.gradle/gradle.properties.
         buildConfigField("String", "API_BASE_URL", "\"${providers.gradleProperty("soundalert.apiUrl").get()}\"")
