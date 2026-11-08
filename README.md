@@ -46,11 +46,11 @@ Micrófono → YAMNet (en el reloj) → sonido de Sound Alert → contexto + reg
 
 | Nivel | Color | Vibración | Cómo se cierra |
 |-------|-------|-----------|----------------|
-| **Peligro** | Rojo `#F03A2E` | 3 vibraciones largas (600 ms), que se repiten cada 15 s hasta confirmar | Solo con el botón **Entendido**; nunca se cierra sola |
-| **Atención** | Ámbar `#F5A90A` | 2 vibraciones medianas (350 ms) | Con un toque o, sola, a los 10 s |
-| **Aviso** | Azul `#5BA8F5` | 1 vibración corta (150 ms) | Con un toque o, sola, a los 5 s |
+| **Peligro** | Rojo `#F03A2E` | 3 vibraciones largas (600 ms, intensidad por defecto del vibrador), que se repiten cada 15 s hasta confirmar | Solo con el botón **Entendido**; nunca se cierra sola |
+| **Atención** | Ámbar `#F5A90A` | 2 vibraciones medianas (400 ms, amplitud 200/255) | Con un toque o, sola, a los 10 s |
+| **Aviso** | Azul `#5BA8F5` | 1 vibración suave (300 ms, amplitud 140/255) | Con un toque o, sola, a los 5 s |
 
-Entre pulsos hay una pausa de 250 ms. El número de barras de la pantalla de alerta (3, 2 o 1) coincide con el número de vibraciones.
+Entre pulsos hay una pausa de 250 ms. Los tres niveles vibran con uso de alarma, para que no dependan de la intensidad de vibración de las notificaciones ni del modo "No molestar". Si el reloj no permite controlar la amplitud, atención y aviso vibran con la intensidad por defecto y la misma duración. El número de barras de la pantalla de alerta (3, 2 o 1) coincide con el número de vibraciones.
 
 ### Contextos
 
@@ -145,7 +145,6 @@ Sirena, alarma de incendio y detector de humo son **Peligro en todos los context
 | Tecnología | Versión |
 |------------|---------|
 | TypeScript | 6.0.3 |
-| Node.js | *por completar* |
 | NestJS (`@nestjs/core`, `@nestjs/platform-express`) | 12.1.2 |
 | Swagger (`@nestjs/swagger`) | 12.0.2 |
 | Configuración (`@nestjs/config`) | 12.0.1 |
