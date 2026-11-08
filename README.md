@@ -7,30 +7,51 @@ El repositorio tiene dos partes:
 - [`wear/`](wear/): la app del reloj (escucha, IA, reglas, alertas e interfaz).
 - [`backend/`](backend/): la API que guarda dispositivos, detecciones y alertas.
 
-## Capturas de pantalla
+## Pantallas
 
-Tomadas en el emulador `Wear_OS_Small_Round` con la zona horaria America/Bogota.
+Capturas de la app real en el emulador `Wear_OS_Small_Round`, con la zona horaria America/Bogota.
 
-<table>
-  <tr>
-    <td align="center"><img src="docs/screenshots/01-inicio.png" width="200" alt="Inicio escuchando"><br><sub>Inicio: escuchando</sub></td>
-    <td align="center"><img src="docs/screenshots/02-analizando.png" width="200" alt="Analizando un sonido"><br><sub>Analizando un sonido</sub></td>
-    <td align="center"><img src="docs/screenshots/03-peligro.png" width="200" alt="Alerta de peligro"><br><sub>Alerta de peligro</sub></td>
-    <td align="center"><img src="docs/screenshots/04-atencion.png" width="200" alt="Alerta de atención"><br><sub>Alerta de atención</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="docs/screenshots/05-aviso.png" width="200" alt="Alerta de aviso"><br><sub>Alerta de aviso</sub></td>
-    <td align="center"><img src="docs/screenshots/06-contexto.png" width="200" alt="Elección de contexto"><br><sub>Contexto</sub></td>
-    <td align="center"><img src="docs/screenshots/07-sonidos.png" width="200" alt="Rueda de sonidos"><br><sub>Rueda de sonidos</sub></td>
-    <td align="center"><img src="docs/screenshots/08-sesiones.png" width="200" alt="Pila de sesiones"><br><sub>Historial de sesiones</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="docs/screenshots/09-tu-dia.png" width="200" alt="Resumen Tu día"><br><sub>Tu día</sub></td>
-    <td align="center"><img src="docs/screenshots/10-detalle.png" width="200" alt="Detalle de sesión"><br><sub>Detalle de sesión</sub></td>
-    <td></td>
-    <td></td>
-  </tr>
-</table>
+### Pantalla de inicio
+
+El núcleo Jarvis muestra si el reloj está escuchando (se anima mientras escucha y queda atenuado y quieto en pausa); manteniéndolo presionado alrededor de un segundo se pausa o se reanuda la escucha.
+
+<p align="center">
+  <img src="docs/screenshots/01-inicio-pausado.png" width="220" alt="Jarvis pausado">
+  <img src="docs/screenshots/01-inicio-escuchando.png" width="220" alt="Jarvis escuchando">
+  <img src="docs/screenshots/02-analizando.png" width="220" alt="Analizando un sonido">
+  <br>
+  <sub>Jarvis pausado · Jarvis escuchando · Analizando un sonido</sub>
+</p>
+
+### Contexto
+
+El contexto indica dónde está la persona (Casa, Calle u Otro) y decide qué sonidos alertan allí; se abre tocando el contexto en la pantalla de inicio.
+
+<p align="center"><img src="docs/screenshots/06-contexto.png" width="220" alt="Elección de contexto"></p>
+
+### Rueda de sonidos
+
+Se recorre con la corona o deslizando en vertical; al tocar un sonido se activa o se desactiva en el contexto actual, y los de peligro llevan un candado porque siempre están activos.
+
+<p align="center"><img src="docs/screenshots/07-sonidos.png" width="220" alt="Rueda de sonidos"></p>
+
+### Historial de sesiones
+
+Una pila de tarjetas con las sesiones de hoy, de la más reciente a la más antigua, con su contexto, duración, horario, línea de tiempo y resumen; un toque abre el detalle.
+
+<p align="center"><img src="docs/screenshots/08-sesiones.png" width="220" alt="Pila de sesiones"></p>
+
+### Tu día
+
+El resumen del día: número de sesiones, tiempo escuchando, alertas por nivel y la sesión más tranquila.
+
+<p align="center"><img src="docs/screenshots/09-tu-dia.png" width="220" alt="Resumen Tu día"></p>
+
+### Detalle de sesión
+
+Un arco del inicio al fin de la sesión con cada sonido en su minuto; debajo, el sonido seleccionado, su hora y qué pasó con él.
+
+<p align="center"><img src="docs/screenshots/10-detalle.png" width="220" alt="Detalle de sesión"></p>
 
 ## Cómo funciona
 
@@ -44,11 +65,11 @@ Micrófono → YAMNet (en el reloj) → sonido de Sound Alert → contexto + reg
 
 ### Niveles de alerta
 
-| Nivel | Color | Vibración | Cómo se cierra |
-|-------|-------|-----------|----------------|
-| **Peligro** | Rojo `#F03A2E` | 3 vibraciones largas (600 ms, intensidad por defecto del vibrador), que se repiten cada 15 s hasta confirmar | Solo con el botón **Entendido**; nunca se cierra sola |
-| **Atención** | Ámbar `#F5A90A` | 2 vibraciones medianas (400 ms, amplitud 200/255) | Con un toque o, sola, a los 10 s |
-| **Aviso** | Azul `#5BA8F5` | 1 vibración suave (300 ms, amplitud 140/255) | Con un toque o, sola, a los 5 s |
+| Pantalla | Nivel | Color | Vibración | Cómo se cierra |
+|----------|-------|-------|-----------|----------------|
+| <img src="docs/screenshots/03-peligro.png" width="120" alt="Alerta de peligro"> | **Peligro** | Rojo `#F03A2E` | 3 vibraciones largas (600 ms, intensidad por defecto del vibrador), que se repiten cada 15 s hasta confirmar | Solo con el botón **Entendido**; nunca se cierra sola |
+| <img src="docs/screenshots/04-atencion.png" width="120" alt="Alerta de atención"> | **Atención** | Ámbar `#F5A90A` | 2 vibraciones medianas (400 ms, amplitud 200/255) | Con un toque o, sola, a los 10 s |
+| <img src="docs/screenshots/05-aviso.png" width="120" alt="Alerta de aviso"> | **Aviso** | Azul `#5BA8F5` | 1 vibración suave (300 ms, amplitud 140/255) | Con un toque o, sola, a los 5 s |
 
 Entre pulsos hay una pausa de 250 ms. Los tres niveles vibran con uso de alarma, para que no dependan de la intensidad de vibración de las notificaciones ni del modo "No molestar". Si el reloj no permite controlar la amplitud, atención y aviso vibran con la intensidad por defecto y la misma duración. El número de barras de la pantalla de alerta (3, 2 o 1) coincide con el número de vibraciones.
 
@@ -61,10 +82,6 @@ Desde la **rueda de sonidos** se puede activar o desactivar cada sonido en cada 
 ### Historial por sesiones
 
 La escucha se agrupa en **sesiones**: una sesión empieza al reanudar la escucha o al cambiar de contexto, y termina con el siguiente cambio o al pausar. Cada sonido detectado se anota en su sesión, haya alertado o no, junto con su nivel y si la persona lo confirmó. Las sesiones vacías de menos de un minuto se descartan.
-
-- **Historial de sesiones:** tarjetas apiladas con las sesiones de hoy, de la más reciente a la más antigua, con su contexto, duración, horario, línea de tiempo y resumen.
-- **Tu día:** número de sesiones, tiempo escuchando, alertas por nivel y la sesión más tranquila.
-- **Detalle de sesión:** un arco del inicio al fin de la sesión con cada sonido en su minuto.
 
 El historial se guarda en el propio reloj.
 
